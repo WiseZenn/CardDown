@@ -10,6 +10,12 @@ npx playwright install chromium
 npm test
 ```
 
+To run the CLI directly from a clone:
+
+```bash
+npm start -- --input examples/sample.md
+```
+
 Use `npm run test:render` after changes to parsing, theming, pagination, screenshots, or browser launch behavior.
 
 ## Pull Request Checklist
@@ -22,7 +28,9 @@ Use `npm run test:render` after changes to parsing, theming, pagination, screens
 
 ## Code Notes
 
-- `src/paginator-algo.js` runs inside Chromium through `page.evaluate()`. Keep it plain JavaScript.
+- Import reusable rendering capabilities from the public `@carddown/core` entry point.
+- Keep CLI-only behavior inside `packages/cli`.
+- `packages/core/src/paginator-algo.js` runs inside Chromium through `page.evaluate()`. Keep it plain JavaScript.
 - Browser-context constants must be passed into the algorithm explicitly.
 - Prefer remark/rehype transforms for Markdown behavior rather than serialized HTML regex replacements.
 - Raw HTML and explicit `file:` URLs are trusted-input features. Keep the default path conservative.

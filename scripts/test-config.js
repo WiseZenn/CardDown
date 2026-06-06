@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mergeConfig } from "../dist/config/config-loader.js";
+import { mergeConfig } from "../packages/cli/dist/config/config-loader.js";
 
 const defaultOpts = {
   output: "./output",

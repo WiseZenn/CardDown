@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Reorganized the repository as an npm workspace monorepo.
+- Added the reusable `@carddown/core` package for parsing, theming, pagination, and rendering.
+- Moved the published `carddown` command into `packages/cli`.
+- Reserved `apps/studio` and `apps/desktop` for future CardDown products.
+
 ## 1.1.0
 
 ### Changed

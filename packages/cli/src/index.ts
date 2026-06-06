@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import chalk from "chalk";
-import { parseMarkdown, parseMarkdownString, extractCoverData, buildCoverHtml } from "./parser.js";
-import { renderToPages } from "./paginator.js";
-import { resolveTheme, listBuiltinThemes } from "./themes.js";
+import {
+  buildCoverHtml,
+  extractCoverData,
+  listBuiltinThemes,
+  parseMarkdown,
+  parseMarkdownString,
+  renderToPages,
+  resolveTheme,
+  scanMissingFonts,
+} from "@carddown/core";
 import { loadConfig, mergeConfig, validateRenderOptions } from "./config/config-loader.js";
-import { scanMissingFonts } from "./font-scanner.js";
 import * as path from "path";
 import type { OutputResult } from "./types.js";
 

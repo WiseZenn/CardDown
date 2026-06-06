@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { parseMarkdownString } from "../dist/parser.js";
+import { parseMarkdownString } from "@carddown/core";
 
 const css = ":root{--accent:#0070f3}";
 const markdown = [

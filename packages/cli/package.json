@@ -1,0 +1,48 @@
+{
+  "name": "carddown",
+  "version": "1.1.0",
+  "description": "Convert Markdown files into paginated image cards from the command line.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "carddown": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && node scripts/set-executable.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "markdown",
+    "image",
+    "cards",
+    "cli",
+    "screenshot",
+    "playwright",
+    "png",
+    "pdf"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WiseZenn/carddown.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/WiseZenn/carddown/issues"
+  },
+  "homepage": "https://github.com/WiseZenn/carddown#readme",
+  "author": "WiseZenn",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "dependencies": {
+    "@carddown/core": "1.1.0",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "yaml": "^2.9.0"
+  }
+}

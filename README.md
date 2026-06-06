@@ -18,17 +18,30 @@ npx playwright install chromium
 carddown -i document.md
 ```
 
-Or run from source:
+## Run From GitHub
+
+You do not need a globally installed npm package to use CardDown from this repository.
 
 ```bash
 git clone https://github.com/WiseZenn/carddown.git
 cd carddown
-npm install
+npm ci
 npx playwright install chromium
+
+# Convert the included example
 npm run dev
+
+# Convert your own Markdown file
+npm start -- --input path/to/document.md
+
+# Show every CLI option
+npm start -- --help
 ```
 
 Output images are saved to `./output/` by default.
+
+`npm start --` builds the Core and CLI workspaces, then forwards the remaining
+arguments to the compiled `carddown` command.
 
 ## Usage
 
@@ -160,26 +173,38 @@ In CI or server environments, ensure headless browser execution is allowed and i
 ## Project Structure
 
 ```text
-src/
-├── index.ts              CLI entry (Commander.js)
-├── parser.ts             Markdown → HTML (unified + KaTeX + local image embedding)
-├── paginator.ts          Playwright rendering and screenshot orchestration
-├── paginator-algo.js     Browser-context pagination algorithm
-├── themes.ts             Built-in themes and external theme loading
-├── font-scanner.ts       Missing font detection
-├── types.ts              Shared types
-└── config/
-    └── config-loader.ts  YAML/JSON config loading and validation
+packages/
+├── core/                 Reusable @carddown/core rendering API
+│   └── src/
+│       ├── index.ts      Public Core exports
+│       ├── parser.ts     Markdown → HTML
+│       ├── paginator.ts  Playwright rendering orchestration
+│       └── themes.ts     Built-in and external themes
+└── cli/                  Published carddown command
+    └── src/
+        ├── index.ts      Commander.js entry
+        └── config/       YAML/JSON config and validation
+apps/
+├── desktop/              Reserved for CardDown Desktop
+└── studio/               Reserved for CardDown Studio
+tools/                    Repository-only utilities
 ```
 
 ## Development
 
 ```bash
-npm run typecheck         # Type-check without emitting
+npm ci                    # Install the exact workspace dependencies
+npx playwright install chromium
+npm run typecheck         # Type-check workspace projects
 npm run build             # Compile to dist/
 npm test                  # Run all checks
 npm run test:render       # Optional browser-backed render test
+npm run batch-export      # Render every example with every built-in theme
 ```
+
+The repository is public on GitHub. The root workspace and `@carddown/core`
+are marked private only to prevent accidental npm publication. This does not
+restrict cloning, using, modifying, or contributing to the source code.
 
 ## Contributing & Security
 

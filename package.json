@@ -1,56 +1,29 @@
 {
-  "name": "carddown",
+  "name": "carddown-workspace",
   "version": "1.1.0",
-  "description": "Convert Markdown files into paginated image cards from a TypeScript CLI.",
-  "main": "./dist/index.js",
-  "bin": {
-    "carddown": "./dist/index.js"
-  },
-  "files": [
-    "dist/config",
-    "dist/font-scanner.js",
-    "dist/index.js",
-    "dist/paginator-algo.js",
-    "dist/paginator.js",
-    "dist/parser.js",
-    "dist/themes.js",
-    "dist/types.js",
-    "CHANGELOG.md",
-    "LICENSE",
-    "README.md"
+  "private": true,
+  "type": "module",
+  "description": "CardDown workspace for Core, CLI, Studio, and Desktop.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
-    "start": "tsx src/index.ts",
-    "dev": "tsx src/index.ts --input examples/sample.md",
-    "dev:json": "tsx src/index.ts --input examples/sample.md --json",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc && node scripts/copy-assets.js",
-    "prepack": "npm run build",
-    "test": "npm run typecheck && npm run build && node scripts/test-config.js && node scripts/test-theme.js && node scripts/test-security.js && node scripts/test-parser.js && node scripts/test-validation.js && node dist/index.js --help && node dist/index.js --list-themes --json",
-    "test:render": "npm run build && node dist/index.js -i examples/test-math.md --json --output output/render-test-math --name render-test-math --scale 1 --no-cover && node dist/index.js -i examples/demo-numerical-analysis.md --theme claude-like-dark --output output/render-demo-dark --name render-demo-dark --scale 1"
+    "start": "npm run build && node packages/cli/dist/index.js",
+    "dev": "npm start -- --input examples/sample.md",
+    "dev:json": "npm start -- --input examples/sample.md --json",
+    "typecheck": "tsc --build --pretty false",
+    "build": "npm run build --workspace @carddown/core && npm run build --workspace carddown",
+    "test": "npm run typecheck && npm run build && node scripts/test-config.js && node scripts/test-theme.js && node scripts/test-security.js && node scripts/test-parser.js && node scripts/test-validation.js && node packages/cli/dist/index.js --help && node packages/cli/dist/index.js --list-themes --json",
+    "test:render": "npm run build && node packages/cli/dist/index.js -i examples/test-math.md --json --output output/render-test-math --name render-test-math --scale 1 --no-cover && node packages/cli/dist/index.js -i examples/demo-numerical-analysis.md --theme claude-like-dark --output output/render-demo-dark --name render-demo-dark --scale 1",
+    "batch-export": "npm run build --workspace @carddown/core && tsx tools/batch-export.ts",
+    "pack:check": "npm pack --workspace @carddown/core --dry-run --json --cache .npm-cache && npm pack --workspace carddown --dry-run --json --cache .npm-cache"
   },
-  "keywords": [
-    "markdown",
-    "image",
-    "cards",
-    "cli",
-    "screenshot",
-    "playwright",
-    "typora",
-    "png",
-    "pdf"
-  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/WiseZenn/carddown.git"
   },
-  "bugs": {
-    "url": "https://github.com/WiseZenn/carddown/issues"
-  },
-  "homepage": "https://github.com/WiseZenn/carddown#readme",
-  "author": "WiseZenn",
   "license": "MIT",
-  "type": "module",
   "engines": {
     "node": ">=20.11"
   },
@@ -59,20 +32,5 @@
     "@types/node": "^25.6.2",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3"
-  },
-  "dependencies": {
-    "chalk": "^5.6.2",
-    "commander": "^14.0.3",
-    "jszip": "^3.10.1",
-    "katex": "^0.16.45",
-    "playwright": "^1.59.1",
-    "rehype-katex": "^7.0.1",
-    "rehype-stringify": "^10.0.1",
-    "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0",
-    "remark-parse": "^11.0.0",
-    "remark-rehype": "^11.1.2",
-    "unified": "^11.0.5",
-    "yaml": "^2.9.0"
   }
 }

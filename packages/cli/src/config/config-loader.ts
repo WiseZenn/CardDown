@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import YAML from "yaml";
-import { DEFAULTS } from "../types.js";
+import { DEFAULTS } from "@carddown/core";
 
 export interface Config {
   theme?: string;

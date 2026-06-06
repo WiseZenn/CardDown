@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseMarkdownString } from "../dist/parser.js";
+import { parseMarkdownString } from "@carddown/core";
 
 const css = ":root{--accent:#0070f3}";
 const tmpDir = path.join(process.cwd(), "output", ".tmp-tests", "parser");

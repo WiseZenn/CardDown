@@ -1,0 +1,44 @@
+{
+  "name": "@carddown/core",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Reusable Markdown-to-paginated-card rendering core for CardDown.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && node scripts/copy-assets.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WiseZenn/carddown.git",
+    "directory": "packages/core"
+  },
+  "author": "WiseZenn",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "katex": "^0.16.45",
+    "playwright": "^1.59.1",
+    "rehype-katex": "^7.0.1",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "unified": "^11.0.5"
+  }
+}

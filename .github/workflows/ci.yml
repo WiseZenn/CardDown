@@ -28,4 +28,4 @@ jobs:
         run: npm test
 
       - name: Verify package contents
-        run: npm pack --dry-run --json --cache .npm-cache
+        run: npm run pack:check

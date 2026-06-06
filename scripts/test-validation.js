@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { validateRenderOptions } from "../dist/config/config-loader.js";
+import { validateRenderOptions } from "../packages/cli/dist/config/config-loader.js";
 
 function expectInvalid(opts, pattern) {
   assert.throws(() => validateRenderOptions(opts), pattern);

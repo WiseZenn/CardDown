@@ -2,6 +2,7 @@ node_modules/
 dist/
 output/
 .npm-cache/
+.pack-cache-*/
 coverage/
 *.tsbuildinfo
 *.tgz

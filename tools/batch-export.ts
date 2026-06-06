@@ -3,10 +3,15 @@
  * Renders all Markdown examples in the examples/ folder
  * using every available built-in theme.
  */
-import { parseMarkdown, parseMarkdownString, extractCoverData, buildCoverHtml } from "./parser.js";
-import { renderToPages } from "./paginator.js";
-import { resolveTheme, listBuiltinThemes } from "./themes.js";
-import { scanMissingFonts } from "./font-scanner.js";
+import {
+  buildCoverHtml,
+  extractCoverData,
+  listBuiltinThemes,
+  parseMarkdown,
+  renderToPages,
+  resolveTheme,
+  scanMissingFonts,
+} from "@carddown/core";
 import * as fs from "fs";
 import * as path from "path";
 import chalk from "chalk";
