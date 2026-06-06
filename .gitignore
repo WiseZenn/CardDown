@@ -1,0 +1,15 @@
+node_modules/
+dist/
+output/
+.npm-cache/
+coverage/
+*.tsbuildinfo
+*.tgz
+*.exe
+*.msi
+test/
+
+# Internal AI development docs (not published)
+docs/project-docs/
+CLAUDE.md
+AGENTS.md
