@@ -1,7 +1,6 @@
 {
   "name": "@carddown/core",
-  "version": "1.1.0",
-  "private": true,
+  "version": "1.2.0",
   "description": "Reusable Markdown-to-paginated-card rendering core for CardDown.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,6 +21,9 @@
     "type": "git",
     "url": "git+https://github.com/WiseZenn/carddown.git",
     "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "author": "WiseZenn",
   "license": "MIT",

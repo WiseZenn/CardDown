@@ -44,10 +44,18 @@ export function loadConfig(profilePath: string): Config {
   const raw = fs.readFileSync(absPath, "utf-8");
   const ext = path.extname(absPath).toLowerCase();
 
+  let parsed: unknown;
   if (ext === ".json") {
-    return JSON.parse(raw) as Config;
+    parsed = JSON.parse(raw);
+  } else {
+    parsed = YAML.parse(raw);
   }
-  return YAML.parse(raw) as Config;
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`Config file must contain a YAML/JSON object (mapping), not a ${parsed === null ? "null" : Array.isArray(parsed) ? "list" : typeof parsed}.`);
+  }
+
+  return parsed as Config;
 }
 
 export function mergeConfig(cliOpts: CliOptions, config: Config, getSource?: GetOptionSource): CliOptions {
@@ -80,7 +88,9 @@ function parseNumberOption(
 ): number {
   const raw = opts[key] ?? fallback;
   const text = String(raw).trim();
-  const numericPattern = config.integer ? /^(?:0|[1-9]\d*)$/ : /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
+  const numericPattern = config.integer
+    ? /^-?(?:0|[1-9]\d*)$/
+    : /^-?(?:\d+\.?\d*|\.\d+)$/;
 
   if (!numericPattern.test(text)) {
     const kind = config.integer ? "an integer" : "a number";

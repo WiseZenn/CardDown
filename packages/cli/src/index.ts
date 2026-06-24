@@ -35,7 +35,7 @@ program
 program
   .name("carddown")
   .description("Markdown → paginated image cards. Default 1080×1440px, smart pagination, multi-theme.")
-  .version("1.1.0")
+  .version("1.2.0")
   .addHelpText(
     "after",
     `
@@ -158,21 +158,15 @@ program.action(async (opts) => {
     errorOpts = mergedOpts;
 
     const validated = validateRenderOptions(mergedOpts);
-    const themeName = validated.themeName;
-    const themeCss = await resolveTheme(themeName, { allowLocalFiles: validated.allowLocalFiles });
 
-    // Determine input source: CLI -i arg > stdin
+    // Determine input source FIRST — surface "no input" before theme errors
     let inputPath: string;
-    let html: string;
+    let stdinContent = "";
 
     if (opts.input) {
       inputPath = opts.input;
-      html = await parseMarkdown(inputPath, themeCss, {
-        allowHtml: validated.allowHtml,
-        allowLocalFiles: validated.allowLocalFiles,
-      });
     } else {
-      const stdinContent = await readStdin();
+      stdinContent = await readStdin();
       if (!stdinContent.trim()) {
         if (asJson) {
           emitJsonError(errorOpts, "No input: provide -i <file> or pipe Markdown via stdin");
@@ -183,6 +177,18 @@ program.action(async (opts) => {
         process.exit(1);
       }
       inputPath = "(stdin)";
+    }
+
+    const themeName = validated.themeName;
+    const themeCss = await resolveTheme(themeName, { allowLocalFiles: validated.allowLocalFiles });
+
+    let html: string;
+    if (opts.input) {
+      html = await parseMarkdown(inputPath, themeCss, {
+        allowHtml: validated.allowHtml,
+        allowLocalFiles: validated.allowLocalFiles,
+      });
+    } else {
       html = await parseMarkdownString(stdinContent, process.cwd(), themeCss, {
         allowHtml: validated.allowHtml,
         allowLocalFiles: validated.allowLocalFiles,
@@ -219,6 +225,7 @@ program.action(async (opts) => {
     }
 
     const docTitle = coverData.title || undefined;
+    let renderedPageCount = 0;
     const files = await renderToPages(html, outputDir, baseName, {
       coverHtml,
       scale: validated.scale,
@@ -228,6 +235,9 @@ program.action(async (opts) => {
       quiet: asJson,
       format: validated.format,
       fillThreshold: validated.fillThreshold,
+      onPageCount: (pageCount) => {
+        renderedPageCount = pageCount;
+      },
     });
 
     const duration = parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
@@ -246,7 +256,7 @@ program.action(async (opts) => {
           output_path: path.resolve(outputDir),
           theme_used: themeName,
           scale: validated.scale,
-          page_count: contentFiles.length,
+          page_count: renderedPageCount || contentFiles.length,
           duration_seconds: duration,
           fonts_missing: missingFonts,
         },
@@ -254,7 +264,7 @@ program.action(async (opts) => {
       process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     } else {
       console.log("");
-      console.log(chalk.green("✔ Done") + chalk.gray(` — ${duration}s, ${contentFiles.length} page(s)`));
+      console.log(chalk.green("✔ Done") + chalk.gray(` — ${duration}s, ${renderedPageCount || contentFiles.length} page(s)`));
       if (coverFile) {
         console.log(chalk.gray("  Cover: ") + coverFile);
       }
@@ -266,9 +276,10 @@ program.action(async (opts) => {
     const message = formatError(err);
     if (asJson) {
       emitJsonError(errorOpts, message);
+    } else {
+      console.error(chalk.red("✘ Error: ") + message);
+      process.exit(1);
     }
-    console.error(chalk.red("✘ Error: ") + message);
-    process.exit(1);
   }
 });
 

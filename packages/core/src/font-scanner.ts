@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { execSync } from "child_process";
 
 // Generic font names (always available, no detection needed)
 const GENERIC_FONTS = new Set([
@@ -10,9 +11,17 @@ const GENERIC_FONTS = new Set([
   "helvetica neue", "arial", "inherit", "initial", "unset",
 ]);
 
+// Normalize font names for comparison: lowercase, strip spaces/dashes/underscores.
+// This bridges the gap between filename-derived names (e.g. "segoeui" from segoeui.ttf)
+// and CSS font-family names (e.g. "Segoe UI").
+function normalizeFontName(name: string): string {
+  return name.toLowerCase().replace(/[\s\-_.]+/g, "");
+}
+
 function getSystemFonts(): Set<string> {
   const fonts = new Set<string>();
   const platform = os.platform();
+  let scanError = false;
 
   if (platform === "win32") {
     const fontDir = path.join(process.env.WINDIR || "C:\\Windows", "Fonts");
@@ -23,7 +32,7 @@ function getSystemFonts(): Set<string> {
           fonts.add(path.basename(f, ext).toLowerCase());
         }
       }
-    } catch { /* ignore */ }
+    } catch { scanError = true; }
 
     // Also scan user fonts directory
     const localFontDir = path.join(process.env.LOCALAPPDATA || "", "Microsoft", "Windows", "Fonts");
@@ -36,7 +45,7 @@ function getSystemFonts(): Set<string> {
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch { scanError = true; }
   } else if (platform === "darwin") {
     const fontDirs = [
       "/System/Library/Fonts",
@@ -51,18 +60,26 @@ function getSystemFonts(): Set<string> {
             fonts.add(path.basename(f, ext).toLowerCase());
           }
         }
-      } catch { /* ignore */ }
+      } catch { scanError = true; }
     }
   } else {
     // Linux: try fc-list
     try {
-      const { execSync } = require("child_process");
       const output = execSync("fc-list : family 2>/dev/null", { encoding: "utf-8", timeout: 5000 });
       for (const line of output.split("\n")) {
-        const name = line.trim().toLowerCase();
-        if (name) fonts.add(name);
+        const trimmed = line.trim().toLowerCase();
+        if (!trimmed) continue;
+        // fc-list may return comma-separated family names for multi-family fonts
+        for (const name of trimmed.split(",")) {
+          const clean = name.trim();
+          if (clean) fonts.add(clean);
+        }
       }
-    } catch { /* ignore */ }
+    } catch { scanError = true; }
+  }
+
+  if (scanError && fonts.size === 0) {
+    console.warn("Could not scan system fonts — font availability check will be unavailable.");
   }
 
   return fonts;
@@ -113,11 +130,19 @@ export function scanMissingFonts(css: string): string[] {
   const declaredFonts = extractDeclaredFontFamilies(css);
   const missing: string[] = [];
 
+  // Pre-normalize system font names for efficient comparison
+  const normalizedSystem = new Map<string, string>();
+  for (const sys of systemFonts) {
+    normalizedSystem.set(normalizeFontName(sys), sys);
+  }
+
   for (const font of requiredFonts) {
     // Fonts declared in @font-face are considered available
     if (declaredFonts.has(font)) continue;
-    // Check system fonts
-    const found = [...systemFonts].some((sys) => sys.includes(font) || font.includes(sys));
+    // Check system fonts using normalized name comparison
+    // This handles filename-derived names (e.g. "segoeui" matches "Segoe UI")
+    const normFont = normalizeFontName(font);
+    const found = normalizedSystem.has(normFont);
     if (!found) {
       missing.push(font);
     }

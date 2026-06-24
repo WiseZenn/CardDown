@@ -2,6 +2,7 @@ import { chromium, type Browser } from "playwright";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { pathToFileURL } from "url";
 import { ensureKatexAssets } from "./parser.js";
 import type { PageDimensions } from "./types.js";
 
@@ -32,11 +33,14 @@ function formatBrowserError(err: unknown): string {
 
 async function launchBrowser(): Promise<Browser> {
   const edgePath = findEdgePath();
+  const launchOpts: Record<string, unknown> = {
+    args: ["--allow-file-access-from-files"],
+  };
+  if (edgePath) {
+    launchOpts.executablePath = edgePath;
+  }
   try {
-    return await chromium.launch({
-      executablePath: edgePath,
-      args: ["--allow-file-access-from-files"],
-    });
+    return await chromium.launch(launchOpts);
   } catch (err) {
     const fallback = edgePath ? ` Tried Microsoft Edge at: ${edgePath}.` : "";
     throw new Error(
@@ -57,6 +61,7 @@ export interface RenderOptions {
   quiet?: boolean;
   format?: "png" | "pdf";
   fillThreshold?: number;
+  onPageCount?: (pageCount: number) => void;
 }
 
 function cleanupPreviousOutputs(outputDir: string, baseName: string): void {
@@ -90,6 +95,7 @@ export async function renderToPages(
     quiet = false,
     format = "png",
     fillThreshold = 0.85,
+    onPageCount,
   } = options;
 
   fs.mkdirSync(outputDir, { recursive: true });
@@ -119,9 +125,9 @@ export async function renderToPages(
 
     // Content pages: write temp file, load via file://
     const tmpDir = ensureKatexAssets();
-    const tmpHtml = path.join(tmpDir, `page-${Date.now()}.html`);
+    const tmpHtml = path.join(tmpDir, `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`);
     fs.writeFileSync(tmpHtml, html);
-    await page.goto(`file:///${tmpHtml.replace(/\\/g, "/")}`, { waitUntil: "domcontentloaded" });
+    await page.goto(pathToFileURL(tmpHtml).href, { waitUntil: "domcontentloaded" });
 
     await page
       .waitForFunction(
@@ -132,8 +138,8 @@ export async function renderToPages(
         },
         { timeout: 30000 }
       )
-      .catch(() => {
-        page.evaluate(() => {
+      .catch(async () => {
+        await page.evaluate(() => {
           Array.from(document.images).forEach((img) => {
             if (img.naturalWidth === 0) {
               img.style.width = "400px";
@@ -150,14 +156,15 @@ export async function renderToPages(
 
     // Inject parameters into algorithm script and execute
     const algoCode = PAGINATION_ALGO
-      .replace("{{PW}}", String(dims.width))
-      .replace("{{PH}}", String(dims.height))
-      .replace("{{PD}}", String(dims.padding))
-      .replace("{{MAX_CODE}}", String(maxCodeLines))
-      .replace("{{FILL}}", String(fillThreshold))
-      .replace('"{{DOC_TITLE}}"', title ? JSON.stringify(title) : "null");
+      .replace(/\{\{PW\}\}/g, String(dims.width))
+      .replace(/\{\{PH\}\}/g, String(dims.height))
+      .replace(/\{\{PD\}\}/g, String(dims.padding))
+      .replace(/\{\{MAX_CODE\}\}/g, String(maxCodeLines))
+      .replace(/\{\{FILL\}\}/g, String(fillThreshold))
+      .replace(/"\{\{DOC_TITLE\}\}"/g, title ? JSON.stringify(title) : "null");
 
     const pageCount: number = await page.evaluate(algoCode);
+    onPageCount?.(pageCount);
 
     if (format === "pdf") {
       // PDF: convert cards to flow layout + page breaks, export as single PDF

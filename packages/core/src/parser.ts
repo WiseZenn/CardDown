@@ -19,7 +19,8 @@ const KATEX_DIST = path.dirname(KATEX_CSS);
 
 let _katexDir: string | null = null;
 export function ensureKatexAssets(): string {
-  if (_katexDir) return _katexDir;
+  if (_katexDir && fs.existsSync(_katexDir)) return _katexDir;
+  // Directory was deleted by OS temp cleanup — recreate
   _katexDir = fs.mkdtempSync(path.join(os.tmpdir(), "carddown-"));
   fs.copyFileSync(path.join(KATEX_DIST, "katex.min.css"), path.join(_katexDir, "katex.min.css"));
   const fontsDst = path.join(_katexDir, "fonts");
@@ -128,6 +129,12 @@ function mimeFromPath(filePath: string): string {
   if (ext === ".gif") return "image/gif";
   if (ext === ".svg") return "image/svg+xml";
   if (ext === ".webp") return "image/webp";
+  if (ext === ".bmp") return "image/bmp";
+  if (ext === ".ico") return "image/x-icon";
+  if (ext === ".tiff" || ext === ".tif") return "image/tiff";
+  if (ext === ".avif") return "image/avif";
+  // For unknown extensions, use octet-stream and log a warning
+  if (ext) console.warn(`Unknown image extension "${ext}" for ${filePath} — using image/png as fallback`);
   return "image/png";
 }
 
@@ -145,6 +152,7 @@ function embedImage(node: Image, baseDir: string, allowLocalFiles: boolean): voi
     const imgData = fs.readFileSync(absoluteImgPath);
     node.url = `data:${mimeFromPath(absoluteImgPath)};base64,${imgData.toString("base64")}`;
   } catch {
+    console.error(`Failed to embed local image: ${absoluteImgPath} — keeping original path (will likely show broken image)`);
     node.url = imgPath;
   }
 }
@@ -162,7 +170,9 @@ function remarkLocalImages(baseDir: string, allowLocalFiles: boolean): Plugin<[]
 }
 
 const remarkCjkAutolinkTail: Plugin<[], Root> = () => {
-  const cjkTailPattern = /^(https?:\/\/[^\s\u3400-\u9fff\u3040-\u30ff\uff00-\uffef]+)([\u3400-\u9fff\u3040-\u30ff\uff00-\uffef].*)$/u;
+  // CJK ranges: \u3000-\u303f (symbols/punctuation), \u3400-\u9fff (unified ideographs + ext-A),
+  // \u3040-\u30ff (hiragana+katakana), \uac00-\ud7af (hangul), \uff00-\uffef (halfwidth/fullwidth)
+  const cjkTailPattern = /^(https?:\/\/[^\s\u3000-\u303f\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\uff00-\uffef]+)([\u3000-\u303f\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\uff00-\uffef].*)$/u;
 
   return (tree) => {
     walk(tree, (_node, parent) => {
@@ -263,13 +273,22 @@ export function extractCoverData(html: string): CoverData {
   return { title, toc };
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function buildCoverHtml(cover: CoverData, css: string): string {
   const tocItems = cover.toc
-    .map((item) => `<li class="toc-${item.level === 2 ? "h2" : "h3"}">${item.text}</li>`)
+    .map((item) => `<li class="toc-${item.level === 2 ? "h2" : "h3"}">${escapeHtml(item.text)}</li>`)
     .join("");
   return `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8" /><style>html,body{height:100%;width:100%;max-width:none!important;margin:0!important;padding:0!important}${css}
+<head><meta charset="UTF-8" /><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: file: http: https:; font-src 'self' file:;"><style>html,body{height:100%;width:100%;max-width:none!important;margin:0!important;padding:0!important}${css}
 body{width:100%!important;max-width:none!important;box-sizing:border-box!important}
 .page-cover{display:flex;flex-direction:column;width:100vw;max-width:none;height:100%;box-shadow:inset 0 12px 0 var(--accent, #0070f3);position:relative}
 .page-cover-body{display:flex;flex-direction:column;flex:1;padding:80px 56px 0}
@@ -284,7 +303,7 @@ body{width:100%!important;max-width:none!important;box-sizing:border-box!importa
 </style></head>
 <body><div class="page-cover">
 <div class="page-cover-body">
-${cover.title ? `<h1>${cover.title}</h1>` : ""}
+${cover.title ? `<h1>${escapeHtml(cover.title)}</h1>` : ""}
 ${tocItems ? `<ul class="toc-list">${tocItems}</ul>` : ""}
 </div>
 <div class="page-cover-footer">WiseZenn</div>
@@ -300,8 +319,10 @@ export async function parseMarkdown(inputPath: string, css?: string, options: Pa
 function assertNoExplicitFileUrls(markdownContent: string): void {
   const patterns = [
     /!\[[^\]]*\]\(\s*<?file:/i,
+    /\[[^\]]*\]\(\s*<?file:/i,  // markdown link syntax [text](file://...)
     /<(?:audio|embed|iframe|img|link|object|script|source|video)\b[^>]*(?:href|src)\s*=\s*["']?\s*file:/i,
     /url\(\s*["']?\s*file:/i,
+    /@import\s+(?:url\(\s*)?["']?\s*file:/i,  // CSS @import file: URLs
   ];
 
   if (patterns.some((pattern) => pattern.test(markdownContent))) {
@@ -391,6 +412,12 @@ function normalizeDisplayMathFences(markdownContent: string): string {
     }
   }
 
+  if (displayMathOpen) {
+    console.warn("Unbalanced $$ display math fence detected — missing closing $$. Output may be corrupted.");
+    // Insert a closing fence to prevent all subsequent content from being treated as math
+    normalized.push("$$");
+  }
+
   return normalized.join("\n");
 }
 
@@ -430,6 +457,7 @@ export async function parseMarkdownString(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: file: http: https:; font-src 'self' file:;" />
   <style>${themeCss}${katexCss}${PAGINATION_CSS}
 .callout{border-left:4px solid var(--callout-border,#0070f3);background:var(--callout-bg,#f0f7ff);color:var(--callout-fg,inherit);padding:12px 20px;margin-bottom:20px;border-radius:0 8px 8px 0}
 .callout-info{border-color:var(--callout-info-border,#0070f3);background:var(--callout-info-bg,#f0f7ff);color:var(--callout-info-fg,var(--callout-fg,inherit))}

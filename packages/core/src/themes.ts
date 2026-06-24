@@ -158,6 +158,10 @@ export async function resolveTheme(themeArg: string, options: ThemeResolveOption
     throw new Error(`Theme not found: ${themeArg}. Built-in themes: ${available}. You can also pass a path to an existing .css or .zip file.`);
   }
 
+  if (!fs.statSync(absPath).isFile()) {
+    throw new Error(`Theme path is a directory, not a file: ${absPath}`);
+  }
+
   return await loadThemeFile(absPath, options);
 }
 
@@ -171,22 +175,42 @@ function assertNoExplicitFileUrls(css: string, source: string): void {
  * Resolve @import directives in CSS by inlining the imported files.
  * Handles: @import "./other.css";  @import url("./other.css");
  */
-function resolveCssImports(css: string, baseDir: string, options: ThemeResolveOptions): string {
-  const importRe = /@import\s+(?:url\(\s*)?["']([^"']+\.css)["'](?:\s*\))?\s*;/g;
+function resolveCssImports(css: string, baseDir: string, options: ThemeResolveOptions, importStack?: Set<string>, depth?: number): string {
+  const activeImports = importStack || new Set<string>();
+  const currentDepth = depth || 0;
+  const MAX_IMPORT_DEPTH = 20;
+
+  if (currentDepth > MAX_IMPORT_DEPTH) {
+    console.warn("  ⚠ @import depth limit reached — possible circular imports");
+    return css;
+  }
+
+  const importRe = /@import\s+(?:url\(\s*)?["']?([^"')]+\.css)["']?\s*\)?\s*;/gi;
   return css.replace(importRe, (_match, importPath: string) => {
     if (!options.allowLocalFiles && /^file:/i.test(importPath)) {
       throw new Error(`Explicit file: @import is disabled by default: ${importPath}. Use --allow-local-files only for trusted themes.`);
     }
     const resolved = path.resolve(baseDir, importPath);
+    if (activeImports.has(resolved)) {
+      console.warn(`  ⚠ Circular @import detected: ${importPath}`);
+      return `/* @import "${importPath}" — skipped (circular) */`;
+    }
     if (!fs.existsSync(resolved)) {
       console.warn(`  ⚠ @import not found: ${importPath} (resolved: ${resolved})`);
       return `/* @import "${importPath}" — file not found */`;
     }
-    const importedCss = fs.readFileSync(resolved, "utf-8");
+    activeImports.add(resolved);
+    const importDir = path.dirname(resolved);
+    let importedCss = fs.readFileSync(resolved, "utf-8");
     if (!options.allowLocalFiles) {
       assertNoExplicitFileUrls(importedCss, resolved);
     }
-    const resolved2 = resolveCssImports(importedCss, path.dirname(resolved), options);
+    // Rewrite font URLs in the imported CSS relative to ITS OWN directory
+    // before inlining, so that subsequent rewriteFontUrls (on the merged CSS)
+    // doesn't resolve them against the wrong (main theme) directory
+    importedCss = rewriteFontUrls(importedCss, importDir);
+    const resolved2 = resolveCssImports(importedCss, importDir, options, activeImports, currentDepth + 1);
+    activeImports.delete(resolved);
     return `/* begin @import "${importPath}" */\n${resolved2}\n/* end @import "${importPath}" */`;
   });
 }
@@ -197,8 +221,9 @@ function resolveCssImports(css: string, baseDir: string, options: ThemeResolveOp
  */
 async function loadThemeFile(themePath: string, options: ThemeResolveOptions): Promise<string> {
   let css: string;
+  const isZipTheme = themePath.toLowerCase().endsWith(".zip");
 
-  if (themePath.endsWith(".zip")) {
+  if (isZipTheme) {
     css = await loadZipTheme(themePath, options);
   } else {
     css = fs.readFileSync(themePath, "utf-8");
@@ -208,7 +233,8 @@ async function loadThemeFile(themePath: string, options: ThemeResolveOptions): P
   }
 
   // Resolve @import directives
-  css = resolveCssImports(css, path.dirname(themePath), options);
+  const importStack = isZipTheme ? new Set<string>() : new Set<string>([path.resolve(themePath)]);
+  css = resolveCssImports(css, path.dirname(themePath), options, importStack);
 
   // Handle font dir: rewrite relative font URLs to absolute file:// paths
   css = rewriteFontUrls(css, path.dirname(themePath));
@@ -230,23 +256,129 @@ async function loadThemeFile(themePath: string, options: ThemeResolveOptions): P
 async function loadZipTheme(zipPath: string, options: ThemeResolveOptions): Promise<string> {
   const buf = fs.readFileSync(zipPath);
   const zip = await JSZip.loadAsync(buf);
+  const zipResourceDir = fs.mkdtempSync(path.join(os.tmpdir(), "carddown-theme-"));
+  const extractedResources = new Map<string, string>();
+
+  function zipDirname(entryName: string): string {
+    const dir = path.posix.dirname(entryName);
+    return dir === "." ? "" : dir;
+  }
+
+  function resolveZipEntry(baseDir: string, refPath: string): string {
+    const cleanRef = refPath.split(/[?#]/, 1)[0];
+    return path.posix.normalize(path.posix.join(baseDir, cleanRef));
+  }
+
+  async function extractZipResource(entryName: string): Promise<string | null> {
+    const normalized = path.posix.normalize(entryName);
+    if (normalized.startsWith("../") || path.posix.isAbsolute(normalized)) return null;
+    if (extractedResources.has(normalized)) return extractedResources.get(normalized) || null;
+
+    const entry = zip.file(normalized);
+    if (!entry) return null;
+
+    const ext = path.posix.extname(normalized);
+    const base = normalized.replace(/[\\/:"*?<>|]+/g, "_").replace(/\.+/g, ".");
+    const fileName = base.endsWith(ext) ? base : `${base}${ext}`;
+    const outPath = path.join(zipResourceDir, fileName);
+    fs.writeFileSync(outPath, await entry.async("nodebuffer"));
+
+    const fileUrl = `file:///${outPath.replace(/\\/g, "/")}`;
+    extractedResources.set(normalized, fileUrl);
+    return fileUrl;
+  }
+
+  async function rewriteZipUrls(cssText: string, cssEntryName: string): Promise<string> {
+    const cssDir = zipDirname(cssEntryName);
+    const urlRe = /url\(\s*["']?([^"')]+)["']?\s*\)(\s*format\([^)]+\))?/gi;
+    let rewritten = "";
+    let lastIndex = 0;
+    let urlMatch: RegExpExecArray | null;
+
+    while ((urlMatch = urlRe.exec(cssText)) !== null) {
+      rewritten += cssText.slice(lastIndex, urlMatch.index);
+      const rawUrl = urlMatch[1].trim();
+      const existingFormat = urlMatch[2] || "";
+      if (/^(https?:|data:|file:\/\/|\/|#)/i.test(rawUrl)) {
+        rewritten += urlMatch[0];
+      } else {
+        const resourceEntry = resolveZipEntry(cssDir, rawUrl);
+        const fileUrl = await extractZipResource(resourceEntry);
+        if (fileUrl) {
+          rewritten += `url("${fileUrl}")${existingFormat}`;
+        } else {
+          console.warn(`  ⚠ zip theme resource not found: ${rawUrl} (resolved: ${resourceEntry})`);
+          rewritten += urlMatch[0];
+        }
+      }
+      lastIndex = urlRe.lastIndex;
+    }
+
+    return rewritten + cssText.slice(lastIndex);
+  }
+
+  async function readZipCss(entryName: string, activeImports = new Set<string>(), depth = 0): Promise<string> {
+    const MAX_IMPORT_DEPTH = 20;
+    const normalized = path.posix.normalize(entryName);
+    if (depth > MAX_IMPORT_DEPTH) {
+      console.warn("  ⚠ zip @import depth limit reached — possible circular imports");
+      return "";
+    }
+    if (activeImports.has(normalized)) {
+      console.warn(`  ⚠ Circular zip @import detected: ${normalized}`);
+      return `/* @import "${normalized}" — skipped (circular) */`;
+    }
+
+    const entry = zip.file(normalized);
+    if (!entry) {
+      console.warn(`  ⚠ zip @import not found: ${normalized}`);
+      return `/* @import "${normalized}" — file not found */`;
+    }
+
+    activeImports.add(normalized);
+    let cssText = await entry.async("text");
+    if (!options.allowLocalFiles) {
+      assertNoExplicitFileUrls(cssText, `${zipPath}:${normalized}`);
+    }
+
+    const cssDir = zipDirname(normalized);
+    const importRe = /@import\s+(?:url\(\s*)?["']?([^"')]+\.css)["']?\s*\)?\s*;/gi;
+    let inlined = "";
+    let lastIndex = 0;
+    let importMatch: RegExpExecArray | null;
+    while ((importMatch = importRe.exec(cssText)) !== null) {
+      inlined += cssText.slice(lastIndex, importMatch.index);
+      const importPath = importMatch[1].trim();
+      const importEntry = resolveZipEntry(cssDir, importPath);
+      const importedCss = await readZipCss(importEntry, activeImports, depth + 1);
+      inlined += `/* begin @import "${importPath}" */\n${importedCss}\n/* end @import "${importPath}" */`;
+      lastIndex = importRe.lastIndex;
+    }
+    inlined += cssText.slice(lastIndex);
+    activeImports.delete(normalized);
+
+    return await rewriteZipUrls(inlined, normalized);
+  }
 
   // Find .css file: prefer root dir, then any location
   let cssFile: JSZip.JSZipObject | null = null;
+  // Prefer the first root-level .css file; fall back to any .css file
   for (const [name, entry] of Object.entries(zip.files)) {
     if (entry.dir) continue;
     if (!name.endsWith(".css")) continue;
-    if (!cssFile || !name.includes("/")) {
+    const isRoot = !name.includes("/");
+    if (isRoot) {
       cssFile = entry;
+      break; // first root-level file wins
+    }
+    if (!cssFile) {
+      cssFile = entry; // fallback: first .css file found anywhere
     }
   }
   if (!cssFile) {
     throw new Error(`No .css file found in zip theme: ${zipPath}`);
   }
-  let css = await cssFile.async("text");
-  if (!options.allowLocalFiles) {
-    assertNoExplicitFileUrls(css, zipPath);
-  }
+  let css = await readZipCss(cssFile.name);
 
   // Parse original @font-face declarations, build fileName → FontFaceDef[] map
   const faceRe = /@font-face\s*\{([^}]+)\}/g;
@@ -254,7 +386,7 @@ async function loadZipTheme(zipPath: string, options: ThemeResolveOptions): Prom
   let m: RegExpExecArray | null;
   while ((m = faceRe.exec(css)) !== null) {
     const body = m[1];
-    const family = body.match(/font-family\s*:\s*["']?([^;"']+)["']?/)?.[1]?.trim() || "";
+    const family = body.match(/font-family\s*:\s*["']?([^;"',]+)/)?.[1]?.trim() || "";
     const url = body.match(/url\s*\(\s*["']?([^)"']+)["']?\)/)?.[1]?.trim() || "";
     const weight = body.match(/font-weight\s*:\s*([^;]+)/)?.[1]?.trim() || "400";
     const style = body.match(/font-style\s*:\s*([^;]+)/)?.[1]?.trim() || "normal";
@@ -334,7 +466,7 @@ function rewriteFontUrls(css: string, cssDir: string): string {
   return css.replace(
     /url\(\s*["']?([^"')]+)["']?\s*\)(\s*format\([^)]+\))?/g,
     (_match, urlPath: string, existingFormat: string | undefined) => {
-      if (/^(https?:|data:|file:\/\/|\/)/.test(urlPath)) {
+      if (/^(https?:|data:|file:\/\/|\/|#)/.test(urlPath)) {
         return _match;
       }
       const resolved = path.resolve(cssDir, urlPath).replace(/\\/g, "/");
@@ -369,29 +501,48 @@ function sanitizeThemeCss(css: string): string {
     if (braceStart === -1) break;
     let depth = 1;
     let pos = braceStart + 1;
+    let inString: false | "'" | '"' = false;
     while (pos < css.length && depth > 0) {
-      if (css[pos] === "{") depth++;
-      else if (css[pos] === "}") depth--;
+      const ch = css[pos];
+      // Track string boundaries to avoid counting braces inside css strings
+      if (ch === "'" || ch === '"') {
+        if (inString === ch) {
+          // Check for escaped quote (e.g. \' or \")
+          if (pos > 0 && css[pos - 1] !== "\\") {
+            inString = false;
+          }
+        } else if (!inString) {
+          inString = ch;
+        }
+      } else if (!inString) {
+        if (ch === "{") depth++;
+        else if (ch === "}") depth--;
+      }
       pos++;
     }
     css = css.substring(0, idx) + css.substring(pos);
   }
   css = css.replace(/@include-when-export[^;]*;/g, "");
 
-  // #write selector → body
-  css = css.replace(/#write/g, "body");
+  // #write selector → body, without touching strings/fragments such as content:"#write".
+  css = css.replace(/(^|[\s,{>+~])#write(?=[\s,.\[{:>#*+~])/gm, "$1body");
 
   // Fix overflow issues in Typora themes for static output
+  // Replace any overflow value on pre.md-fences with overflow-x:auto to prevent content spill
   css = css.replace(
-    /pre\.md-fences\s*\{\s*overflow\s*:\s*visible\b([^}]*)\}/g,
-    "pre.md-fences{overflow-x:auto!important$1}"
+    /pre\.md-fences\s*\{([^}]*)\}/g,
+    (_full: string, body: string) => {
+      // Replace overflow property while preserving others
+      const fixed = body.replace(/overflow\s*:\s*[^;]+/, "overflow-x:auto!important");
+      return `pre.md-fences{${fixed}}`;
+    }
   );
 
   return css;
 }
 
 function extractAccent(css: string): string {
-  var m = css.match(/--accent-color:\s*([^;]+)/);
+  let m = css.match(/--accent-color:\s*([^;]+)/);
   if (m) return m[1].trim();
   m = css.match(/a\s*\{[^}]*color:\s*([^;]+)/);
   if (m) return m[1].trim();

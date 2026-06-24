@@ -202,9 +202,9 @@ npm run test:render       # Optional browser-backed render test
 npm run batch-export      # Render every example with every built-in theme
 ```
 
-The repository is public on GitHub. The root workspace and `@carddown/core`
-are marked private only to prevent accidental npm publication. This does not
-restrict cloning, using, modifying, or contributing to the source code.
+The repository is public on GitHub. The root workspace is private only to
+prevent accidental publication of the workspace wrapper. `@carddown/core` is a
+published runtime dependency used by the `carddown` CLI.
 
 ## Contributing & Security
 

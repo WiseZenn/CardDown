@@ -2,12 +2,25 @@
 
 ## Unreleased
 
+## 1.2.0 - 2026-06-23
+
 ### Changed
 
 - Reorganized the repository as an npm workspace monorepo.
 - Added the reusable `@carddown/core` package for parsing, theming, pagination, and rendering.
 - Moved the published `carddown` command into `packages/cli`.
 - Reserved `apps/studio` and `apps/desktop` for future CardDown products.
+- Publish `@carddown/core` as the public runtime dependency for the `carddown` CLI.
+- Added release dry-run coverage for both workspace packages.
+
+### Fixed
+
+- Allowed remote `http:` and `https:` Markdown images under the generated CSP.
+- Fixed Linux font scanning under ESM by removing runtime `require()` usage.
+- Report true rendered page counts for PDF JSON and terminal output.
+- Wired `--fill-threshold` into the browser pagination algorithm.
+- Preserved heading order during fill balancing when moving consecutive heading groups.
+- Resolved `.zip` theme internal `@import` and relative asset URLs against archive paths.
 
 ## 1.1.0
 

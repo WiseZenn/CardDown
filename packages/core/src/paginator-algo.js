@@ -4,7 +4,7 @@
 
 (function() {
   var PW = {{PW}}, PH = {{PH}}, PD = {{PD}}, MAX_CODE = {{MAX_CODE}};
-  var FILL = {{FILL}};
+  var FILL = Math.max(0, Math.min(1, {{FILL}}));
   var docTitle = "{{DOC_TITLE}}";
 
   // ── Named constants ───────────────────────────────────────
@@ -12,9 +12,9 @@
   var BOTTOM_SPACER = 40;       // Bottom padding
   var MIN_SPACE_FOR_SPLIT = 200;// Minimum remaining space (px) to allow paragraph split
   var MAX_OVERFLOW_FIX = 12;    // Max overflow fix iterations
-  var FILL_TARGET = 0.70;       // Fill balancing target ratio
-  var FILL_EMPTY_THRESH = 0.62; // Page "too empty" threshold, triggers pull from next page
-  var FILL_PULL_MIN = 0.30;     // Minimum page occupancy to allow pulling from
+  var FILL_TARGET = FILL;       // Fill balancing target ratio
+  var FILL_EMPTY_THRESH = Math.max(0, FILL_TARGET - 0.08); // Page "too empty" threshold, triggers pull from next page
+  var FILL_PULL_MIN = Math.max(0, Math.min(0.30, FILL_EMPTY_THRESH / 2)); // Minimum page occupancy to allow pulling from
   var SCALE_FACTOR_MAX = 0.98;  // Max image scale-down factor
   var headerReserve = docTitle ? HEADER_HEIGHT : 0;
   var contentArea = PH - PD * 2;
@@ -98,6 +98,10 @@
     return contentLimit - (crdIdx > 0 ? headerReserve : 0);
   }
 
+  function finalLimitFor() {
+    return contentArea;
+  }
+
   function isOver(crd) {
     return used(crd) > limitFor(crd || card);
   }
@@ -139,7 +143,7 @@
     appendToCard(el);
 
     for (var n = 0; n < MAX_OVERFLOW_FIX && isOver(); n++) {
-      var overflow = used() - contentLimit;
+      var overflow = used() - limitFor();
       maxH = Math.max(1, maxH - overflow - 1);
       setImgMaxH(el, maxH);
     }
@@ -182,7 +186,7 @@
     });
 
     for (var step = 0; step < MAX_OVERFLOW_FIX && isOver(crd); step++) {
-      var overflow = used(crd) - contentLimit;
+      var overflow = used(crd) - limitFor(crd);
       var imageHeight = 0;
       for (var h = 0; h < imgs.length; h++) imageHeight += currentImageHeight(imgs[h]);
       if (imageHeight <= 0) break;
@@ -223,6 +227,9 @@
   }
 
   function splitIntoSentences(el) {
+    // Bail out if element has inline children (strong, em, a, code, img, etc.)
+    // because cloneNode(false) + textContent replacement would silently discard them
+    if (el.children && el.children.length > 0) return null;
     var text = el.textContent || "";
     if (text.length < 10) return null;
 
@@ -324,7 +331,7 @@
       var langClass = codeEl ? codeEl.className : "";
 
       var split = lines.length;
-      var fillTarget = limitFor() - bottomSpacer;
+      var fillTarget = limitFor();
       var maxTry = (MAX_CODE > 0 && MAX_CODE < lines.length) ? MAX_CODE : lines.length;
       for (var j = 1; j <= maxTry; j++) {
         var tPre = document.createElement("pre");
@@ -365,6 +372,12 @@
         cd2.textContent = restLines.join("\n");
         p2.appendChild(cd2);
         appendToCard(p2);
+        // Guard: if content still overflows the fresh page (e.g. single extremely
+        // long line exceeding contentWidth), clamp instead of crashing at verification
+        if (isOver()) {
+          p2.style.maxHeight = limitFor() + "px";
+          p2.style.overflow = "hidden";
+        }
       }
     } else if (isHeading(tag) && i + 1 < children.length) {
       var hClone = c.cloneNode(true);
@@ -478,12 +491,37 @@
         moveElementsBefore(tail, cards[p2], nextCrd2, nFirst2);
 
         if (isOver(nextCrd2)) {
-          // Moving headings caused overflow — revert in original order.
+          // Moving all headings overflowed — try moving a subset
+          // Revert all first, then try with fewer headings
           for (var r = 0; r < tail.length; r++) {
             removeFromCard(tail[r], nextCrd2);
           }
           for (var a = 0; a < tail.length; a++) {
             appendToCard(tail[a], cards[p2]);
+          }
+
+          // Try moving fewer headings (skip the last/first heading in the tail)
+          var partialSuccess = false;
+          for (var subLen = tail.length - 1; subLen >= 1; subLen--) {
+            var subTail = tail.slice(tail.length - subLen);
+            moveElementsBefore(subTail, cards[p2], nextCrd2, nFirst2);
+            if (!isOver(nextCrd2)) {
+              partialSuccess = true;
+              break;
+            }
+            // Revert subset
+            for (var rs = 0; rs < subTail.length; rs++) {
+              removeFromCard(subTail[rs], nextCrd2);
+            }
+            for (var as = 0; as < subTail.length; as++) {
+              appendToCard(subTail[as], cards[p2]);
+            }
+          }
+
+          if (partialSuccess) {
+            moved = true;
+            // Continue the while loop to check for more orphaned headings
+            continue;
           }
           break;
         }
@@ -523,7 +561,7 @@
       var kid = nxtKids[pk];
       var kidTag = kid.tagName.toLowerCase();
 
-      // If heading, try to pull heading + first non-heading after it
+      // If heading, try to pull the full contiguous heading run + first body element.
       if (isHeading(kidTag) && pk + 1 < nxtKids.length) {
         // Find the first non-heading after this heading
         var followerIdx = pk + 1;
@@ -532,23 +570,27 @@
         }
         if (followerIdx >= nxtKids.length) continue; // no content follows, can't pull heading alone
 
-        var hTest = kid.cloneNode(true);
-        var fTest = nxtKids[followerIdx].cloneNode(true);
-        appendToCard(hTest, cur);
-        appendToCard(fTest, cur);
+        var testEls = [];
+        for (var hi = pk; hi <= followerIdx; hi++) {
+          var testEl2 = nxtKids[hi].cloneNode(true);
+          testEls.push(testEl2);
+          appendToCard(testEl2, cur);
+        }
         if (!isOver(cur)) {
-          // Both fit — move heading + follower
-          removeFromCard(kid, nxt);
-          removeFromCard(nxtKids[followerIdx], nxt);
+          // The whole group fits — move it in original order.
+          for (var mi = pk; mi <= followerIdx; mi++) {
+            removeFromCard(nxtKids[mi], nxt);
+          }
           // Refresh nxtKids since we removed elements
           nxtKids = contentChildrenWithoutSpacers(nxt);
           pk = -1; // restart scan
           pulledAny = true;
           continue;
         }
-        removeFromCard(fTest, cur);
-        removeFromCard(hTest, cur);
-        // Heading+follower too big, skip this heading
+        for (var ri = testEls.length - 1; ri >= 0; ri--) {
+          removeFromCard(testEls[ri], cur);
+        }
+        // Heading group too big, skip this heading group.
         pk = followerIdx; // skip past the follower
         continue;
       }
@@ -609,6 +651,15 @@
         removeFromCard(testEl, prev);
       }
     }
+
+    // After merge attempt, clean up: if source page is now empty, remove the card
+    // so we don't leave orphaned children at low fill ratios
+    if (contentChildrenWithoutSpacers(c).length === 0) {
+      if (c.parentElement) {
+        c.parentElement.removeChild(c);
+      }
+      cards.splice(mp, 1);
+    }
   }
 
   // Fill balancing and final cleanup can create new trailing-heading tails.
@@ -626,16 +677,6 @@
     }
   }
 
-  // ── Overflow verification ─────────────────────────
-  for (var v = 0; v < cards.length; v++) {
-    var finalUsed = used(cards[v]);
-    if (finalUsed > limitFor(cards[v])) {
-      throw new Error(
-        "Pagination overflow on page " + (v + 1) + ": used " + finalUsed + "px of " + limitFor(cards[v]) + "px"
-      );
-    }
-  }
-
   // ── Final positioning ─────────────────────────────
   for (var q = 0; q < cards.length; q++) {
     cards[q].dataset.page = String(q);
@@ -648,7 +689,9 @@
       var content = contentOf(cards[ph]);
       var header = document.createElement("div");
       header.className = "page-header";
-      header.innerHTML = "<h1>" + docTitle + "</h1>";
+      var headerTitle = document.createElement("h1");
+      headerTitle.textContent = docTitle;
+      header.appendChild(headerTitle);
       content.insertBefore(header, content.firstChild);
     }
   }
@@ -659,6 +702,17 @@
     pnEl.className = "page-number";
     pnEl.textContent = (pn + 1) + " / " + cards.length;
     cards[pn].appendChild(pnEl);
+  }
+
+  // ── Overflow verification (after headers & page numbers) ──
+  for (var v = 0; v < cards.length; v++) {
+    var finalUsed = used(cards[v]);
+    var finalLimit = finalLimitFor();
+    if (finalUsed > finalLimit) {
+      throw new Error(
+        "Pagination overflow on page " + (v + 1) + ": used " + finalUsed + "px of " + finalLimit + "px"
+      );
+    }
   }
 
   return cards.length;

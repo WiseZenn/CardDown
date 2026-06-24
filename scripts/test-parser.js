@@ -48,6 +48,7 @@ const markdown = [
 ].join("\n");
 
 const html = await parseMarkdownString(markdown, tmpDir, css);
+assert.match(html, /img-src 'self' data: file: http: https:/);
 assert.match(html, /<mark>\u9ad8\u4eae<\/mark>/u);
 assert.match(html, /<img src="data:image\/png;base64,/);
 assert.match(html, /title="\u56fe\u7247"/u);
