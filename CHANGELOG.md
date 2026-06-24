@@ -8,10 +8,11 @@
 
 - Reorganized the repository as an npm workspace monorepo.
 - Added the reusable `@carddown/core` package for parsing, theming, pagination, and rendering.
-- Moved the published `carddown` command into `packages/cli`.
+- Moved the published CLI package into `packages/cli` while keeping the installed `carddown` command.
 - Reserved `apps/studio` and `apps/desktop` for future CardDown products.
-- Publish `@carddown/core` as the public runtime dependency for the `carddown` CLI.
+- Publish `@carddown/core` as the public runtime dependency for the `@carddown/cli` package after npm rejected the unscoped `carddown` package name.
 - Added release dry-run coverage for both workspace packages.
+- Added CLI-only publish scripts for the case where Core has already been published for the current version.
 
 ### Fixed
 

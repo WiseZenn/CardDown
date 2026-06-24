@@ -3,7 +3,7 @@
 The `carddown` command converts Markdown files into paginated PNG cards or PDF output.
 
 ```bash
-npm install -g carddown
+npm install -g @carddown/cli
 npx playwright install chromium
 
 carddown -i document.md
