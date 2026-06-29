@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">CardDown project icon</title>
+  <desc id="desc">A minimal CardDown app icon with stacked cards and a Markdown-inspired M down mark.</desc>
+  <defs>
+    <linearGradient id="tile-gradient" x1="154" y1="122" x2="872" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fffaf2"/>
+      <stop offset="1" stop-color="#edf5f2"/>
+    </linearGradient>
+    <linearGradient id="front-card-gradient" x1="310" y1="210" x2="716" y2="816" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fbf4ea"/>
+    </linearGradient>
+    <filter id="card-shadow" x="-18%" y="-18%" width="136%" height="136%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#31423d" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <g id="app-tile">
+    <rect x="112" y="112" width="800" height="800" rx="224" fill="url(#tile-gradient)"/>
+  </g>
+
+  <g id="card-stack" filter="url(#card-shadow)">
+    <rect id="back-card" x="344" y="244" width="376" height="532" rx="98" fill="#dcebe6" transform="rotate(5 532 510)"/>
+    <rect id="middle-card" x="304" y="226" width="416" height="570" rx="108" fill="#efe0cf" transform="rotate(-4 512 511)"/>
+    <rect id="document-card" x="270" y="200" width="484" height="624" rx="118" fill="url(#front-card-gradient)"/>
+  </g>
+
+  <g id="fold-accent" opacity="0"/>
+  <g id="markdown-lines" opacity="0"/>
+
+  <g id="carddown-mark" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path id="mark-c" pathLength="1" d="M358 588V376L458 502L558 376V588" stroke="#2d6f68" stroke-width="78"/>
+    <path id="down-arrow" pathLength="1" d="M668 376v210M590 506l78 82 78-82" stroke="#d56f49" stroke-width="78"/>
+  </g>
+</svg>

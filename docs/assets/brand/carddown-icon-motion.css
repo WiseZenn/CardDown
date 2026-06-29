@@ -1,0 +1,99 @@
+:root {
+  --p2m-duration: 1200ms;
+  --p2m-ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --p2m-ease-settle: cubic-bezier(0.4, 0, 0.2, 1);
+  --p2m-ease-narrative: cubic-bezier(0.34, 0, 0.14, 1);
+  --p2m-shadow: drop-shadow(0 26px 28px rgba(74, 56, 40, 0.18));
+}
+
+#logo-root svg {
+  overflow: visible;
+}
+
+#app-tile,
+#card-stack,
+#document-card,
+#markdown-lines,
+#mark-c,
+#down-arrow,
+#fold-accent {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+#app-tile {
+  opacity: 0;
+  transform: scale(0.92);
+  animation: cd-tile var(--p2m-duration) cubic-bezier(0.34, 0, 0.14, 1) both;
+}
+
+#card-stack {
+  opacity: 0;
+  transform: translateY(42px) scale(0.96) rotate(-2deg);
+  animation: cd-stack var(--p2m-duration) cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+#document-card,
+#fold-accent {
+  opacity: 0;
+  transform: translateY(28px) scale(0.98);
+  animation: cd-front var(--p2m-duration) cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+#markdown-lines {
+  opacity: 0;
+  transform: translateY(18px);
+  animation: cd-lines var(--p2m-duration) cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+#mark-c {
+  stroke-dasharray: 1.08;
+  stroke-dashoffset: 1.08;
+  animation: cd-draw-c var(--p2m-duration) cubic-bezier(0.34, 0, 0.14, 1) both;
+}
+
+#down-arrow {
+  opacity: 0;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transform: translateY(-16px) scale(0.94);
+  animation: cd-arrow var(--p2m-duration) cubic-bezier(0, 0, 0.2, 1) both;
+}
+
+@keyframes cd-tile {
+  0% { opacity: 0; transform: scale(0.92); }
+  18% { opacity: 1; transform: scale(0.9); animation-timing-function: cubic-bezier(0.34, 0, 0.14, 1); }
+  68% { opacity: 1; transform: scale(1.012); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cd-stack {
+  0%, 14% { opacity: 0; transform: translateY(42px) scale(0.96) rotate(-2deg); }
+  58% { opacity: 1; transform: translateY(-8px) scale(1.01) rotate(0.6deg); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+}
+
+@keyframes cd-front {
+  0%, 22% { opacity: 0; transform: translateY(28px) scale(0.98); }
+  64% { opacity: 1; transform: translateY(-5px) scale(1.006); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cd-lines {
+  0%, 38% { opacity: 0; transform: translateY(18px); }
+  72% { opacity: 0.82; transform: translateY(-2px); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  100% { opacity: 0.82; transform: translateY(0); }
+}
+
+@keyframes cd-draw-c {
+  0%, 28% { stroke-dashoffset: 1.08; opacity: 0; }
+  36% { opacity: 1; }
+  78% { stroke-dashoffset: 0; animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
+
+@keyframes cd-arrow {
+  0%, 46% { opacity: 0; stroke-dashoffset: 1; transform: translateY(-16px) scale(0.94); }
+  72% { opacity: 1; stroke-dashoffset: 0; transform: translateY(5px) scale(1.012); animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
+  100% { opacity: 1; stroke-dashoffset: 0; transform: translateY(0) scale(1); }
+}
