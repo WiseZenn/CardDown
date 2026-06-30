@@ -11,7 +11,7 @@ import {
   resolveTheme,
   scanMissingFonts,
 } from "@carddown/core";
-import { loadConfig, mergeConfig, validateRenderOptions } from "./config/config-loader.js";
+import { DEFAULT_THEME, loadConfig, mergeConfig, validateRenderOptions } from "./config/config-loader.js";
 import * as path from "path";
 import type { OutputResult } from "./types.js";
 
@@ -61,7 +61,7 @@ program
   .option("-o, --output <dir>", "Output directory", "./output")
   .option("-n, --name <name>", "Output filename prefix (defaults to input filename)")
   .option("--json", "Output structured JSON (for agents and scripts)")
-  .option("--theme <name|.css>", "Theme: github / claude-like / claude-like-dark / claude-like-grey, or external .css path")
+  .option("--theme <name|.css>", "Theme: claude-like / github / claude-like-dark / claude-like-grey, or external .css path", DEFAULT_THEME)
   .option("--scale <number>", "Output scale factor", "2")
   .option("--width <px>", "Card width in pixels", "1080")
   .option("--height <px>", "Card height in pixels", "1440")
@@ -106,7 +106,7 @@ function emitJsonError(opts: Record<string, unknown>, message: string, exitCode 
     metadata: {
       input_file: inputFile === "(stdin)" ? inputFile : path.resolve(inputFile),
       output_path: outputPath,
-      theme_used: (opts.theme as string) || "github",
+      theme_used: (opts.theme as string) || DEFAULT_THEME,
       scale,
       page_count: 0,
       duration_seconds: 0,

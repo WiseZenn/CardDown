@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import JSZip from "jszip";
-import { listBuiltinThemes, resolveTheme } from "@carddown/core";
+import { listBuiltinThemes, resolveTheme, scanMissingFonts } from "@carddown/core";
 
 assert.deepEqual(listBuiltinThemes(), [
   "claude-like",
@@ -11,6 +11,21 @@ assert.deepEqual(listBuiltinThemes(), [
   "github",
 ]);
 
+
+assert.deepEqual(
+  scanMissingFonts('body{font-family:"CardDown Missing Serif", serif}'),
+  [],
+);
+
+assert.deepEqual(
+  scanMissingFonts('@font-face{font-family:"CardDown Declared";src:url("data:font/woff2;base64,AA==")} body{font-family:"CardDown Declared"}'),
+  [],
+);
+
+assert.deepEqual(
+  scanMissingFonts('body{font-family:"CardDown Missing Required"}'),
+  ["carddown missing required"],
+);
 const css = await resolveTheme("github");
 assert.match(css, /--accent:#0070f3/);
 

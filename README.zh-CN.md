@@ -20,7 +20,7 @@
 
 ![CardDown Claude 亮色展示图](./docs/assets/readme/carddown-claude-light-showcase.png)
 
-CardDown 可以把 Markdown 文档渲染成排版精致、自动分页的图片卡片。它面向技术文章、课程笔记、教程长文、复盘文档、Vibe Coding 过程记录，以及需要在图文平台或短视频里展示的长内容。CardDown 的特色是浏览器级渲染、智能分页、尺寸可配置、主题可定制：默认输出 1080x1440，但宽度、高度、内边距和缩放倍数都可以调整；主题既有内置风格，也支持外部 CSS 和 Typora `.zip` 主题包。
+CardDown 可以把 Markdown 文档渲染成排版精致、自动分页的图片卡片。它面向技术文章、课程笔记、教程长文、复盘文档、Vibe Coding 过程记录，以及需要在图文平台或短视频里展示的长内容。CardDown 的特色是浏览器级渲染、智能分页、尺寸可配置、主题可定制：默认使用 Claude 亮色主题并输出 1080x1440，但主题、宽度、高度、内边距和缩放倍数都可以调整；主题既有内置风格，也支持外部 CSS 和 Typora `.zip` 主题包。
 
 ## 适合什么场景
 
@@ -33,7 +33,7 @@ CardDown 可以把 Markdown 文档渲染成排版精致、自动分页的图片�
 ## 核心能力
 
 - 智能分页：标题、段落、代码块、表格、图片和公式会尽量保持可读。
-- 主题可定制：内置 `github` / `claude-like` 系列主题，也支持外部 `.css` 和 Typora `.zip` 主题包。
+- 主题可定制：默认使用 `claude-like`，也可切换到 `github` / `claude-like-dark` / `claude-like-grey`，或接入外部 `.css` 和 Typora `.zip` 主题包。
 - 输出可配置：默认 1080x1440 PNG 卡片，可调整宽度、高度、内边距、缩放倍数，也支持自动封面和页码。
 - Markdown 支持完整：GFM 表格、任务列表、代码高亮、KaTeX 数学公式、`==高亮==`、引用块、Obsidian 风格 callout。
 - 适合自动化且默认更安全：`--json` 输出可供脚本消费，原始 HTML 和显式 `file:` URL 默认关闭。
@@ -47,7 +47,14 @@ npx playwright install chromium
 carddown -i document.md
 ```
 
-默认输出目录是 `./output/`。
+默认输出目录是 `./output/`。如果 Markdown 文件路径里有空格，需要给路径加引号，例如：`carddown -i "我的 技术教程.md"`。
+
+已经全局安装过时，可以这样更新到最新版：
+
+```bash
+npm update -g @carddown/cli
+npx playwright install chromium
+```
 
 ## 从 GitHub 运行
 
@@ -101,7 +108,7 @@ cat doc.md | carddown --json
 | `-i, --input <file>` | 输入 Markdown 文件；省略时读取 stdin | - |
 | `-o, --output <dir>` | 输出目录 | `./output` |
 | `-n, --name <name>` | 输出文件名前缀 | 输入文件名或 `output` |
-| `--theme <name\|.css>` | 内置主题名，或外部 `.css` / `.zip` 主题路径 | `github` |
+| `--theme <name\|.css>` | 内置主题名，或外部 `.css` / `.zip` 主题路径 | `claude-like` |
 | `--scale <number>` | 输出缩放倍数 | `2` |
 | `--width <px>` | 卡片宽度 | `1080` |
 | `--height <px>` | 卡片高度 | `1440` |
@@ -123,7 +130,8 @@ cat doc.md | carddown --json
 
 ```bash
 carddown -i examples/sample.md
-carddown -i doc.md --theme claude-like
+carddown -i "我的 技术教程.md"
+carddown -i doc.md --theme github
 carddown -i doc.md --theme ./custom.css --scale 1
 carddown list themes
 carddown list themes --json
@@ -158,7 +166,7 @@ carddown -i file.md --json
   "metadata": {
     "input_file": "/absolute/path/file.md",
     "output_path": "/absolute/path/output",
-    "theme_used": "github",
+    "theme_used": "claude-like",
     "scale": 2,
     "page_count": 1,
     "duration_seconds": 3.2,
@@ -179,7 +187,7 @@ carddown -i file.md --json
   "metadata": {
     "input_file": "missing.md",
     "output_path": "",
-    "theme_used": "github",
+    "theme_used": "claude-like",
     "scale": 2,
     "page_count": 0,
     "duration_seconds": 0,

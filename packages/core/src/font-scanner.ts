@@ -3,7 +3,7 @@ import * as path from "path";
 import * as os from "os";
 import { execSync } from "child_process";
 
-// Generic font names (always available, no detection needed)
+// Generic font names are always valid CSS fallbacks and do not need filesystem detection.
 const GENERIC_FONTS = new Set([
   "serif", "sans-serif", "monospace", "cursive", "fantasy",
   "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace",
@@ -11,11 +11,13 @@ const GENERIC_FONTS = new Set([
   "helvetica neue", "arial", "inherit", "initial", "unset",
 ]);
 
-// Normalize font names for comparison: lowercase, strip spaces/dashes/underscores.
-// This bridges the gap between filename-derived names (e.g. "segoeui" from segoeui.ttf)
-// and CSS font-family names (e.g. "Segoe UI").
 function normalizeFontName(name: string): string {
   return name.toLowerCase().replace(/[\s\-_.]+/g, "");
+}
+
+function isGenericFont(name: string): boolean {
+  const lower = name.toLowerCase();
+  return GENERIC_FONTS.has(lower) || GENERIC_FONTS.has(normalizeFontName(lower));
 }
 
 function getSystemFonts(): Set<string> {
@@ -34,7 +36,6 @@ function getSystemFonts(): Set<string> {
       }
     } catch { scanError = true; }
 
-    // Also scan user fonts directory
     const localFontDir = path.join(process.env.LOCALAPPDATA || "", "Microsoft", "Windows", "Fonts");
     try {
       if (fs.existsSync(localFontDir)) {
@@ -63,13 +64,11 @@ function getSystemFonts(): Set<string> {
       } catch { scanError = true; }
     }
   } else {
-    // Linux: try fc-list
     try {
       const output = execSync("fc-list : family 2>/dev/null", { encoding: "utf-8", timeout: 5000 });
       for (const line of output.split("\n")) {
         const trimmed = line.trim().toLowerCase();
         if (!trimmed) continue;
-        // fc-list may return comma-separated family names for multi-family fonts
         for (const name of trimmed.split(",")) {
           const clean = name.trim();
           if (clean) fonts.add(clean);
@@ -79,36 +78,43 @@ function getSystemFonts(): Set<string> {
   }
 
   if (scanError && fonts.size === 0) {
-    console.warn("Could not scan system fonts — font availability check will be unavailable.");
+    console.warn("Could not scan system fonts - font availability check will be unavailable.");
   }
 
   return fonts;
 }
 
-export function extractFontFamilies(css: string): string[] {
-  const families = new Set<string>();
-  // Match font-family: "Font Name", 'Font Name', Font Name;
+function parseFontFamilyList(values: string): string[] {
+  return values
+    .split(",")
+    .map((part) => part.trim().replace(/^['"]|['"]$/g, "").toLowerCase())
+    .filter((name) => name && !name.startsWith("var(") && !name.includes("!important"));
+}
+
+function extractFontFamilyStacks(css: string): string[][] {
+  const stacks: string[][] = [];
   const re = /font-family\s*:\s*([^;}]+)/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(css)) !== null) {
-    // Skip font-family inside @font-face (injected by zip, considered available)
     const before = css.substring(0, m.index);
     if (/@font-face\s*\{[^}]*$/.test(before)) continue;
 
-    const values = m[1];
-    for (const part of values.split(",")) {
-      let name = part.trim().replace(/^["']|["']$/g, "").toLowerCase();
-      // Skip CSS variables and !important remnants
-      if (!name || name.startsWith("var(") || name.includes("!important")) continue;
-      if (!GENERIC_FONTS.has(name)) {
-        families.add(name);
-      }
+    const stack = parseFontFamilyList(m[1]);
+    if (stack.length > 0) stacks.push(stack);
+  }
+  return stacks;
+}
+
+export function extractFontFamilies(css: string): string[] {
+  const families = new Set<string>();
+  for (const stack of extractFontFamilyStacks(css)) {
+    for (const name of stack) {
+      if (!isGenericFont(name)) families.add(name);
     }
   }
   return [...families];
 }
 
-// Extract font family names declared in @font-face (considered available)
 function extractDeclaredFontFamilies(css: string): Set<string> {
   const declared = new Set<string>();
   const faceRe = /@font-face\s*\{[^}]*\}/g;
@@ -116,37 +122,40 @@ function extractDeclaredFontFamilies(css: string): Set<string> {
   while ((block = faceRe.exec(css)) !== null) {
     const familyMatch = block[0].match(/font-family\s*:\s*["']?([^;"'}]+)["']?/);
     if (familyMatch) {
-      declared.add(familyMatch[1].trim().toLowerCase());
+      declared.add(normalizeFontName(familyMatch[1].trim()));
     }
   }
   return declared;
 }
 
+function fontIsAvailable(font: string, normalizedSystem: Set<string>, declaredFonts: Set<string>): boolean {
+  const normalized = normalizeFontName(font);
+  return declaredFonts.has(normalized) || normalizedSystem.has(normalized);
+}
+
 export function scanMissingFonts(css: string): string[] {
-  const requiredFonts = extractFontFamilies(css);
-  if (requiredFonts.length === 0) return [];
+  const stacks = extractFontFamilyStacks(css);
+  if (stacks.length === 0) return [];
 
-  const systemFonts = getSystemFonts();
-  const declaredFonts = extractDeclaredFontFamilies(css);
-  const missing: string[] = [];
-
-  // Pre-normalize system font names for efficient comparison
-  const normalizedSystem = new Map<string, string>();
-  for (const sys of systemFonts) {
-    normalizedSystem.set(normalizeFontName(sys), sys);
+  const normalizedSystem = new Set<string>();
+  for (const sys of getSystemFonts()) {
+    normalizedSystem.add(normalizeFontName(sys));
   }
+  const declaredFonts = extractDeclaredFontFamilies(css);
+  const missing = new Set<string>();
 
-  for (const font of requiredFonts) {
-    // Fonts declared in @font-face are considered available
-    if (declaredFonts.has(font)) continue;
-    // Check system fonts using normalized name comparison
-    // This handles filename-derived names (e.g. "segoeui" matches "Segoe UI")
-    const normFont = normalizeFontName(font);
-    const found = normalizedSystem.has(normFont);
-    if (!found) {
-      missing.push(font);
+  for (const stack of stacks) {
+    const namedFonts = stack.filter((font) => !isGenericFont(font));
+    if (namedFonts.length === 0) continue;
+
+    const hasGenericFallback = stack.some(isGenericFont);
+    const hasAvailableNamedFont = namedFonts.some((font) => fontIsAvailable(font, normalizedSystem, declaredFonts));
+    if (hasGenericFallback || hasAvailableNamedFont) continue;
+
+    for (const font of namedFonts) {
+      missing.add(font);
     }
   }
 
-  return missing;
+  return [...missing];
 }

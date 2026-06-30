@@ -3,6 +3,8 @@ import * as path from "path";
 import YAML from "yaml";
 import { DEFAULTS } from "@carddown/core";
 
+export const DEFAULT_THEME = "claude-like";
+
 export interface Config {
   theme?: string;
   scale?: number;
@@ -117,7 +119,7 @@ export function validateRenderOptions(opts: CliOptions): ValidatedRenderOptions 
     throw new Error("--output must not be empty.");
   }
 
-  const themeName = String(opts.theme ?? "github").trim();
+  const themeName = String(opts.theme ?? DEFAULT_THEME).trim();
   if (!themeName) {
     throw new Error("--theme must not be empty.");
   }

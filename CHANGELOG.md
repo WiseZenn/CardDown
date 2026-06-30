@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 1.2.1 - 2026-06-30
+
+### Changed
+
+- Changed the default CLI theme from `github` to `claude-like`.
+- Updated README examples for the Claude light default theme, paths with spaces, and global update commands.
+
+### Fixed
+
+- Reduced noisy missing-font warnings by checking whole `font-family` fallback stacks instead of reporting every absent preferred font.
+
 ## 1.2.0 - 2026-06-23
 
 ### Changed

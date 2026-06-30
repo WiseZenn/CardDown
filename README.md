@@ -20,12 +20,12 @@
 
 ![CardDown Claude light showcase](./docs/assets/readme/carddown-claude-light-showcase.png)
 
-CardDown turns Markdown into polished, paginated image cards for technical writing, study notes, tutorials, release notes, and social-friendly long-form content. It combines browser-accurate rendering with smart pagination, configurable card dimensions, PNG export, and a theme system that supports built-in styles plus external CSS or Typora `.zip` theme packs. The default output is 1080x1440, but width, height, padding, and scale can be tuned for different platforms and workflows.
+CardDown turns Markdown into polished, paginated image cards for technical writing, study notes, tutorials, release notes, and social-friendly long-form content. It combines browser-accurate rendering with smart pagination, configurable card dimensions, PNG export, and a theme system that supports built-in styles plus external CSS or Typora `.zip` theme packs. The default output uses the Claude light theme at 1080x1440, but theme, width, height, padding, and scale can be tuned for different platforms and workflows.
 
 ## Why CardDown
 
 - Smart pagination for real documents: headings, paragraphs, code blocks, tables, images, and math are arranged into readable card pages.
-- Themeable presentation: use built-in `github` / `claude-like` themes, or bring your own CSS / Typora `.zip` theme pack.
+- Themeable presentation: the default is `claude-like`; use built-in `github` / `claude-like` themes, or bring your own CSS / Typora `.zip` theme pack.
 - Configurable output: default 1080x1440 PNG cards, with custom width, height, padding, scale, cover pages, and page numbers.
 - Rich Markdown support: GFM tables, task lists, syntax-highlighted code, KaTeX math, highlights, blockquotes, and Obsidian-style callouts.
 - Automation friendly and safer by default: structured JSON output, raw HTML off by default, and explicit `file:` URLs gated behind trusted-input flags.
@@ -39,7 +39,14 @@ npx playwright install chromium
 carddown -i document.md
 ```
 
-Output images are saved to `./output/` by default.
+Output images are saved to `./output/` by default. If your Markdown path contains spaces, wrap it in quotes, for example `carddown -i "my tutorial.md"`.
+
+To update an existing global install:
+
+```bash
+npm update -g @carddown/cli
+npx playwright install chromium
+```
 
 ## Run From GitHub
 
@@ -93,7 +100,7 @@ cat doc.md | carddown --json
 | `-i, --input <file>` | Input Markdown file; reads stdin if omitted | - |
 | `-o, --output <dir>` | Output directory | `./output` |
 | `-n, --name <name>` | Output filename prefix | Input filename or `output` |
-| `--theme <name\|.css>` | Built-in theme name, or path to external `.css` / `.zip` theme | `github` |
+| `--theme <name\|.css>` | Built-in theme name, or path to external `.css` / `.zip` theme | `claude-like` |
 | `--scale <number>` | Output scale factor | `2` |
 | `--width <px>` | Card width | `1080` |
 | `--height <px>` | Card height | `1440` |
@@ -115,7 +122,8 @@ Numeric options are strictly validated: `--scale` must be >= 1; `--width`, `--he
 
 ```bash
 carddown -i examples/sample.md
-carddown -i doc.md --theme claude-like
+carddown -i "my tutorial.md"
+carddown -i doc.md --theme github
 carddown -i doc.md --theme ./custom.css --scale 1
 carddown list themes
 carddown list themes --json
@@ -150,7 +158,7 @@ On success:
   "metadata": {
     "input_file": "/absolute/path/file.md",
     "output_path": "/absolute/path/output",
-    "theme_used": "github",
+    "theme_used": "claude-like",
     "scale": 2,
     "page_count": 1,
     "duration_seconds": 3.2,
@@ -171,7 +179,7 @@ On error:
   "metadata": {
     "input_file": "missing.md",
     "output_path": "",
-    "theme_used": "github",
+    "theme_used": "claude-like",
     "scale": 2,
     "page_count": 0,
     "duration_seconds": 0,
