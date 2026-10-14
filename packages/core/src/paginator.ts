@@ -217,6 +217,12 @@ export async function renderToPages(
     const pageCount = result.pages;
     const warnings = Array.isArray(result.warnings) ? result.warnings : [];
     onPageCount?.(pageCount);
+
+    // Fail rather than hand back a blank card. Nothing has been written yet, so
+    // the previous run's output is left intact.
+    if (pageCount === 0 && !coverHtml) {
+      throw new Error("The document produced no content to render. Check that the input is not empty.");
+    }
     if (warnings.length > 0) {
       onWarnings?.(warnings);
       // Only print when nobody is handling them, so a caller with its own
