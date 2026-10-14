@@ -2,7 +2,19 @@
 
 ## Unreleased
 
+### Added
+
+- Pagination warnings now reach the terminal and the JSON output as `metadata.warnings`. The algorithm runs inside the browser, where its `console.warn` calls were invisible to the CLI, so silent degradation was indistinguishable from a clean render.
+- `prepack` hooks on both packages, so publishing from a dirty tree rebuilds instead of shipping a stale `dist`.
+- Dependabot configuration and a scheduled `npm audit` workflow. The audit runs weekly rather than per pull request, so a new advisory in a transitive dependency does not block an unrelated change.
+- `CODE_OF_CONDUCT.md` and `.editorconfig`.
+
 ### Fixed
+
+- Content wider than a card (a wide table, a long unbroken line) is now reported per page instead of being silently clipped by the card's `overflow: hidden`.
+- Image galleries paginate instead of being squashed to fit one page. Images may shrink to at most 60% of their laid-out height; past that the gallery continues on the next card. Previously 40 images could render on a single card with 35 of them one pixel tall.
+- Failed renders report the algorithm's own message with an actionable hint, instead of Playwright's wrapper and an in-page JavaScript stack.
+- Temporary directories (KaTeX assets, `.zip` theme resources and fonts) are removed when the process exits. A caller running the CLI repeatedly accumulated one per run — roughly 1.5 MB each.
 
 - Long lists, tables, blockquotes and oversized paragraphs no longer abort the entire render. Blocks taller than one page are now split across pages, and anything that still cannot fit is clipped with a warning instead of failing the run.
 - `--max-code-lines` now actually limits code lines per page. Previously, a code block longer than the limit was emitted whole onto one page and failed the render.
