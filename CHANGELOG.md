@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Fixed
+
+- Long lists, tables, blockquotes and oversized paragraphs no longer abort the entire render. Blocks taller than one page are now split across pages, and anything that still cannot fit is clipped with a warning instead of failing the run.
+- `--max-code-lines` now actually limits code lines per page. Previously, a code block longer than the limit was emitted whole onto one page and failed the render.
+- Document titles containing `$&`, `$'`, `` $` `` or `$$` no longer crash the render or silently corrupt page headers.
+- `==highlight==` is readable again on `claude-like-dark` and `claude-like-grey`. Parser CSS was overriding every theme's `mark` styling with a light background; themes now own their own highlight colors.
+- Page headers and cover titles show real text instead of HTML entities (a title containing `&` used to render as `&#x26;`).
+- Paragraphs that mix an image with text no longer collapse to zero line height, which had made their text unreadable.
+- PDF output no longer prints content twice. Blocks that fit on a page were left visible in the document, so the flow layout used for PDF printed both the original and the paginated card.
+- Previous output files are removed only after a successful render, so a failed run no longer deletes the last good output.
+- Temporary HTML files created during a render are now cleaned up.
+- `carddown --version` now reports the actual package version. 1.2.1 shipped reporting `1.2.0`.
+
+### Changed
+
+- `npm test` now runs browser-backed render checks, so a broken pagination algorithm fails in CI instead of shipping.
+- CI covers Windows as well as Linux, and Node 20.11 (the declared minimum) as well as 22.
+
 ## 1.2.1 - 2026-06-30
 
 ### Changed

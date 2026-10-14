@@ -27,7 +27,7 @@ CardDown turns Markdown into polished, paginated image cards for technical writi
 - Smart pagination for real documents: headings, paragraphs, code blocks, tables, images, and math are arranged into readable card pages.
 - Themeable presentation: the default is `claude-like`; use built-in `github` / `claude-like` themes, or bring your own CSS / Typora `.zip` theme pack.
 - Configurable output: default 1080x1440 PNG cards, with custom width, height, padding, scale, cover pages, and page numbers.
-- Rich Markdown support: GFM tables, task lists, syntax-highlighted code, KaTeX math, highlights, blockquotes, and Obsidian-style callouts.
+- Rich Markdown support: GFM tables, task lists, fenced code blocks, KaTeX math, `==highlights==`, blockquotes, and Obsidian-style callouts.
 - Automation friendly and safer by default: structured JSON output, raw HTML off by default, and explicit `file:` URLs gated behind trusted-input flags.
 
 ## Quick Start
@@ -113,10 +113,11 @@ cat doc.md | carddown --json
 | `--allow-html` | Allow raw HTML in Markdown (trusted input only) | - |
 | `--allow-local-files` | Allow explicit `file:` URLs in Markdown/CSS (trusted input only) | - |
 | `--json` | Output structured JSON | - |
+| `--list-themes` | List built-in themes (same as `carddown list themes`) | - |
 
 Config precedence: explicit CLI args > `--profile` file > CLI defaults.
 
-Numeric options are strictly validated: `--scale` must be >= 1; `--width`, `--height`, `--padding`, and `--max-code-lines` must be positive integers; `--fill-threshold` must be 0-1; `--format` must be `png` or `pdf`.
+Numeric options are strictly validated: `--scale` must be >= 1; `--width` and `--height` must be positive integers; `--padding` and `--max-code-lines` must be integers >= 0; `--fill-threshold` must be 0-1; `--format` must be `png` or `pdf`. Padding must also leave a positive content area, so `--padding` cannot be half the card width or height.
 
 ## Common Examples
 
@@ -177,8 +178,8 @@ On error:
     "content": []
   },
   "metadata": {
-    "input_file": "missing.md",
-    "output_path": "",
+    "input_file": "/absolute/path/missing.md",
+    "output_path": "/absolute/path/output",
     "theme_used": "claude-like",
     "scale": 2,
     "page_count": 0,
@@ -197,7 +198,7 @@ Raw HTML in Markdown is not rendered by default. Enable it only for trusted docu
 carddown -i doc.md --allow-html
 ```
 
-Explicit `file:` URLs in Markdown and external theme CSS are also rejected by default. Relative-path images are still converted to data URLs. Enable local file URLs only for trusted documents and themes:
+Explicit `file:` URLs in Markdown and external theme CSS are also rejected by default, and so are absolute local image paths such as `/home/me/pic.png` or `C:\pics\shot.png`. Relative-path images are still converted to data URLs. Enable local file access only for trusted documents and themes:
 
 ```bash
 carddown -i doc.md --allow-local-files

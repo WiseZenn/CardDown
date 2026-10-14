@@ -1,6 +1,7 @@
 node_modules/
 dist/
 output/
+outputs/
 .npm-cache/
 .pack-cache-*/
 coverage/
@@ -9,6 +10,17 @@ coverage/
 *.exe
 *.msi
 test/
+
+# Editor and OS junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# Local environment
+.env
+.env.*
 
 # Internal AI development docs (not published)
 docs/project-docs/

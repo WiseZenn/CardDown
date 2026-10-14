@@ -35,7 +35,7 @@ CardDown 可以把 Markdown 文档渲染成排版精致、自动分页的图片�
 - 智能分页：标题、段落、代码块、表格、图片和公式会尽量保持可读。
 - 主题可定制：默认使用 `claude-like`，也可切换到 `github` / `claude-like-dark` / `claude-like-grey`，或接入外部 `.css` 和 Typora `.zip` 主题包。
 - 输出可配置：默认 1080x1440 PNG 卡片，可调整宽度、高度、内边距、缩放倍数，也支持自动封面和页码。
-- Markdown 支持完整：GFM 表格、任务列表、代码高亮、KaTeX 数学公式、`==高亮==`、引用块、Obsidian 风格 callout。
+- Markdown 支持完整：GFM 表格、任务列表、围栏代码块、KaTeX 数学公式、`==高亮==`、引用块、Obsidian 风格 callout。
 - 适合自动化且默认更安全：`--json` 输出可供脚本消费，原始 HTML 和显式 `file:` URL 默认关闭。
 
 ## 快速开始
@@ -121,10 +121,11 @@ cat doc.md | carddown --json
 | `--allow-html` | 允许渲染 Markdown 中的原始 HTML，仅用于可信输入 | - |
 | `--allow-local-files` | 允许 Markdown/CSS 中显式 `file:` URL，仅用于可信输入 | - |
 | `--json` | 输出结构化 JSON | - |
+| `--list-themes` | 列出内置主题（等同于 `carddown list themes`） | - |
 
 配置优先级：命令行显式参数 > `--profile` 配置文件 > CLI 默认值。
 
-数值参数会严格校验：`--scale` 必须 >= 1；`--width`、`--height`、`--padding`、`--max-code-lines` 必须是正整数；`--fill-threshold` 必须在 0-1 之间；`--format` 只能是 `png` 或 `pdf`。
+数值参数会严格校验：`--scale` 必须 >= 1；`--width`、`--height` 必须是正整数；`--padding`、`--max-code-lines` 必须是 >= 0 的整数；`--fill-threshold` 必须在 0-1 之间；`--format` 只能是 `png` 或 `pdf`。此外 `--padding` 还必须留出正的正文区域，因此不能达到卡片宽高的一半。
 
 ## 常用命令
 
@@ -185,8 +186,8 @@ carddown -i file.md --json
     "content": []
   },
   "metadata": {
-    "input_file": "missing.md",
-    "output_path": "",
+    "input_file": "/absolute/path/missing.md",
+    "output_path": "/absolute/path/output",
     "theme_used": "claude-like",
     "scale": 2,
     "page_count": 0,
@@ -205,7 +206,7 @@ carddown -i file.md --json
 carddown -i doc.md --allow-html
 ```
 
-Markdown 和外部主题 CSS 里的显式 `file:` URL 默认也会被拒绝。相对路径图片仍会转换为 data URL。只有在文档和主题都可信时再开启：
+Markdown 和外部主题 CSS 里的显式 `file:` URL 默认也会被拒绝，绝对路径图片（如 `/home/me/pic.png`、`C:\pics\shot.png`）同样被拒绝。相对路径图片仍会转换为 data URL。只有在文档和主题都可信时再开启：
 
 ```bash
 carddown -i doc.md --allow-local-files
