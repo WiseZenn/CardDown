@@ -7,9 +7,25 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is where the maintainer develops and where paginator.ts picks
+        # Microsoft Edge over the bundled Chromium, so it has to be covered.
+        os: [ubuntu-latest, windows-latest]
+        # 20.11 is the declared engines floor; 22 is the current LTS line.
+        node: [20.11, 22]
 
     steps:
       - name: Checkout
@@ -18,14 +34,25 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run release checks
+      - name: Install Playwright Chromium (Linux)
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright Chromium (Windows)
+        if: runner.os == 'Windows'
+        run: npx playwright install chromium
+
+      # npm test runs the browser-backed render checks, so a break in
+      # paginator-algo.js fails here instead of shipping.
+      - name: Run test suite
         run: npm test
 
       - name: Verify package contents
+        if: runner.os == 'Linux' && matrix.node == 22
         run: npm run pack:check
