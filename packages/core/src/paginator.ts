@@ -64,9 +64,10 @@ export interface RenderOptions {
   onPageCount?: (pageCount: number) => void;
 }
 
-function cleanupPreviousOutputs(outputDir: string, baseName: string): void {
-  if (!fs.existsSync(outputDir)) return;
+function findPreviousOutputs(outputDir: string, baseName: string): string[] {
+  if (!fs.existsSync(outputDir)) return [];
 
+  const stale: string[] = [];
   for (const entry of fs.readdirSync(outputDir, { withFileTypes: true })) {
     if (!entry.isFile()) continue;
 
@@ -75,7 +76,24 @@ function cleanupPreviousOutputs(outputDir: string, baseName: string): void {
     const isSamePdf = name === `${baseName}.pdf`;
 
     if (isSamePrefixImage || isSamePdf) {
-      fs.unlinkSync(path.join(outputDir, name));
+      stale.push(path.join(outputDir, name));
+    }
+  }
+  return stale;
+}
+
+// Stale files are removed only once every new page has been written. Deleting
+// them up front would destroy a previous good run when this one fails.
+// `keep` is what this run just wrote: output names are deterministic, so a
+// re-render produces the same paths and those must survive the cleanup.
+function removeStaleOutputs(stale: string[], keep: string[]): void {
+  const written = new Set(keep.map((file) => path.resolve(file)));
+  for (const file of stale) {
+    if (written.has(path.resolve(file))) continue;
+    try {
+      fs.unlinkSync(file);
+    } catch {
+      // Best effort: a locked file must not fail an otherwise good render.
     }
   }
 }
@@ -99,9 +117,10 @@ export async function renderToPages(
   } = options;
 
   fs.mkdirSync(outputDir, { recursive: true });
-  cleanupPreviousOutputs(outputDir, baseName);
+  const staleOutputs = findPreviousOutputs(outputDir, baseName);
 
   const browser = await launchBrowser();
+  let tmpHtmlFile: string | null = null;
   try {
     const context = await browser.newContext({ deviceScaleFactor: scale });
     const page = await context.newPage();
@@ -126,6 +145,7 @@ export async function renderToPages(
     // Content pages: write temp file, load via file://
     const tmpDir = ensureKatexAssets();
     const tmpHtml = path.join(tmpDir, `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`);
+    tmpHtmlFile = tmpHtml;
     fs.writeFileSync(tmpHtml, html);
     await page.goto(pathToFileURL(tmpHtml).href, { waitUntil: "domcontentloaded" });
 
@@ -154,14 +174,17 @@ export async function renderToPages(
     // Wait for custom fonts before pagination (otherwise fallback fonts cause inaccurate measurement)
     await page.evaluate(() => document.fonts.ready).catch(() => {});
 
-    // Inject parameters into algorithm script and execute
+    // Inject parameters into algorithm script and execute.
+    // Every replacement uses a function: a plain replacement string would let
+    // `$&`, "$'", "$`" and `$$` in the value expand as replace patterns, and
+    // the document title comes straight from the input file's H1.
     const algoCode = PAGINATION_ALGO
-      .replace(/\{\{PW\}\}/g, String(dims.width))
-      .replace(/\{\{PH\}\}/g, String(dims.height))
-      .replace(/\{\{PD\}\}/g, String(dims.padding))
-      .replace(/\{\{MAX_CODE\}\}/g, String(maxCodeLines))
-      .replace(/\{\{FILL\}\}/g, String(fillThreshold))
-      .replace(/"\{\{DOC_TITLE\}\}"/g, title ? JSON.stringify(title) : "null");
+      .replace(/\{\{PW\}\}/g, () => String(dims.width))
+      .replace(/\{\{PH\}\}/g, () => String(dims.height))
+      .replace(/\{\{PD\}\}/g, () => String(dims.padding))
+      .replace(/\{\{MAX_CODE\}\}/g, () => String(maxCodeLines))
+      .replace(/\{\{FILL\}\}/g, () => String(fillThreshold))
+      .replace(/"\{\{DOC_TITLE\}\}"/g, () => (title ? JSON.stringify(title) : "null"));
 
     const pageCount: number = await page.evaluate(algoCode);
     onPageCount?.(pageCount);
@@ -193,8 +216,19 @@ export async function renderToPages(
       }
     }
 
+    // Only now is it safe to drop last run's files: everything we meant to
+    // write has been written.
+    removeStaleOutputs(staleOutputs, outputPaths);
+
     return outputPaths;
   } finally {
     await browser.close();
+    if (tmpHtmlFile) {
+      try {
+        fs.rmSync(tmpHtmlFile, { force: true });
+      } catch {
+        // Temp cleanup is best effort — never mask the real render error.
+      }
+    }
   }
 }
