@@ -15,7 +15,8 @@
   ],
   "scripts": {
     "build": "tsc && node scripts/copy-assets.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "npm run build"
   },
   "repository": {
     "type": "git",

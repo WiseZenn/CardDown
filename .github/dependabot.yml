@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # The markdown pipeline is version-locked in practice: remark, rehype and
+      # unified share the mdast/hast types, so a major bump of one without the
+      # others produces a tree that does not compile. Review them together.
+      markdown-pipeline:
+        patterns:
+          - "unified"
+          - "remark-*"
+          - "rehype-*"
+      # Type packages and test tooling carry no runtime risk.
+      dev-tooling:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
