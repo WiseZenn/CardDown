@@ -263,9 +263,23 @@ await check("a CLI run leaves no temporary directories behind", async () => {
   assert.deepEqual(added, [], `temp directories leaked: ${added.join(", ")}`);
 });
 
-await check("empty document still renders a single card", async () => {
-  const { files } = await render("empty", "");
-  assert.equal(files.length, 1);
+await check("an empty document fails instead of producing a blank card", async () => {
+  const themeCss = await resolveTheme("github");
+  const html = await parseMarkdownString("", WORK_DIR, themeCss);
+  await assert.rejects(
+    () => renderToPages(html, path.join(WORK_DIR, "empty"), "empty", { scale: 1, quiet: true }),
+    /produced no content to render/,
+    "an empty input used to render one blank 1080x1440 card and report success",
+  );
+});
+
+await check("a whitespace-only document fails the same way", async () => {
+  const themeCss = await resolveTheme("github");
+  const html = await parseMarkdownString("   \n\n\t\n", WORK_DIR, themeCss);
+  await assert.rejects(
+    () => renderToPages(html, path.join(WORK_DIR, "blank"), "blank", { scale: 1, quiet: true }),
+    /produced no content to render/,
+  );
 });
 
 await check("heading-only document renders a single card", async () => {

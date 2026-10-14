@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- An empty or whitespace-only document now fails with `The document produced no content to render` instead of writing one blank 1080x1440 card and reporting success. Scripted callers that previously saw `status: "success"` with `page_count: 1` will now see an error. Existing output files are left untouched when this happens.
+
 ### Added
 
 - Pagination warnings now reach the terminal and the JSON output as `metadata.warnings`. The algorithm runs inside the browser, where its `console.warn` calls were invisible to the CLI, so silent degradation was indistinguishable from a clean render.
