@@ -12,6 +12,12 @@ export interface OutputResult {
     page_count: number;
     duration_seconds: number;
     fonts_missing: string[];
+    /**
+     * Degradations accepted during pagination, e.g. a block taller or wider
+     * than one card. Present so a caller never has to guess whether the
+     * exported images are complete.
+     */
+    warnings: string[];
   };
   message?: string;
 }

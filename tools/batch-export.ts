@@ -42,6 +42,7 @@ async function main() {
   const totalStart = Date.now();
   let successCount = 0;
   let failCount = 0;
+  let warningCount = 0;
   const errors: string[] = [];
 
   for (const input of INPUTS) {
@@ -79,11 +80,13 @@ async function main() {
           : undefined;
 
         // Render
+        const taskWarnings: string[] = [];
         const files = await renderToPages(html, outputDir, safeLabel, {
           coverHtml,
           scale: SCALE,
           title: coverData.title || undefined,
           quiet: true,
+          onWarnings: (list) => taskWarnings.push(...list),
         });
 
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -92,8 +95,15 @@ async function main() {
 
         console.log(
           chalk.green(`  ✔ [${taskLabel}]`) +
-          chalk.gray(` ${pageCount} page(s) · ${duration}s`)
+          chalk.gray(` ${pageCount} page(s) · ${duration}s`) +
+          (taskWarnings.length > 0 ? chalk.yellow(` · ${taskWarnings.length} warning(s)`) : "")
         );
+        if (taskWarnings.length > 0) {
+          for (const warning of taskWarnings) {
+            console.log(chalk.yellow(`      ⚠ ${warning}`));
+          }
+          warningCount += taskWarnings.length;
+        }
         successCount++;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -108,6 +118,9 @@ async function main() {
   console.log("");
   console.log(chalk.bold("Batch export complete"));
   console.log(chalk.green(`  ✔ Success: ${successCount}`));
+  if (warningCount > 0) {
+    console.log(chalk.yellow(`  ⚠ Pagination warnings: ${warningCount}`));
+  }
   if (failCount > 0) {
     console.log(chalk.red(`  ✘ Failed: ${failCount}`));
     for (const err of errors) {

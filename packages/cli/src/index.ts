@@ -117,6 +117,7 @@ function emitJsonError(opts: Record<string, unknown>, message: string, exitCode 
       page_count: 0,
       duration_seconds: 0,
       fonts_missing: [],
+      warnings: [],
     },
     message,
   };
@@ -232,6 +233,7 @@ program.action(async (opts) => {
 
     const docTitle = coverData.title || undefined;
     let renderedPageCount = 0;
+    const renderWarnings: string[] = [];
     const files = await renderToPages(html, outputDir, baseName, {
       coverHtml,
       scale: validated.scale,
@@ -244,7 +246,17 @@ program.action(async (opts) => {
       onPageCount: (pageCount) => {
         renderedPageCount = pageCount;
       },
+      onWarnings: (warnings) => {
+        renderWarnings.push(...warnings);
+      },
     });
+
+    if (!asJson && renderWarnings.length > 0) {
+      console.log(chalk.yellow(`  ⚠ ${renderWarnings.length} pagination warning(s):`));
+      for (const warning of renderWarnings) {
+        console.log(chalk.yellow(`    - ${warning}`));
+      }
+    }
 
     const duration = parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
     const coverFile = coverHtml ? files[0] : null;
@@ -265,6 +277,7 @@ program.action(async (opts) => {
           page_count: renderedPageCount || contentFiles.length,
           duration_seconds: duration,
           fonts_missing: missingFonts,
+          warnings: renderWarnings,
         },
       };
       process.stdout.write(JSON.stringify(result, null, 2) + "\n");
