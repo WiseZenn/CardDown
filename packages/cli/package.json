@@ -12,7 +12,8 @@
   ],
   "scripts": {
     "build": "tsc && node scripts/set-executable.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "npm run build"
   },
   "keywords": [
     "markdown",
