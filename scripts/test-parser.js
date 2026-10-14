@@ -58,7 +58,10 @@ assert.match(html, /<div class="callout callout-tip">/);
 assert.match(html, /<div class="callout-title">\u516c\u5f0f\u4e4b\u540e<\/div>/u);
 assert.match(html, /<div class="callout callout-important">/);
 assert.match(html, /\u5f15\u7528\u516c\u5f0f\u4e4b\u540e/u);
-assert.match(html, /<p>Inline double dollars should stay with this sentence:[\s\S]*and this continuation remains a plain paragraph\.<\/p>/u);
+assert.match(
+  html,
+  /<p>Inline double dollars should stay with this sentence:[\s\S]*and this continuation remains a plain paragraph\.<\/p>/u,
+);
 assert.match(html, /<strong>\u6b63\u6587<\/strong>/u);
 assert.match(html, /class="katex/);
 assert.match(html, /katex-display/);

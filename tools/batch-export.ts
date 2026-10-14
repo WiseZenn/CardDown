@@ -22,10 +22,11 @@ const OUTPUT_ROOT = path.join(PROJECT_ROOT, "output");
 // Input file definitions
 const EXAMPLES_DIR = path.join(PROJECT_ROOT, "examples");
 const INPUTS: { label: string; file: string }[] = fs.existsSync(EXAMPLES_DIR)
-  ? fs.readdirSync(EXAMPLES_DIR)
-    .filter((file) => file.endsWith(".md"))
-    .sort()
-    .map((file) => ({ label: path.basename(file, ".md"), file: path.join(EXAMPLES_DIR, file) }))
+  ? fs
+      .readdirSync(EXAMPLES_DIR)
+      .filter((file) => file.endsWith(".md"))
+      .sort()
+      .map((file) => ({ label: path.basename(file, ".md"), file: path.join(EXAMPLES_DIR, file) }))
   : [];
 
 // Scale setting: scale=1 for fast export
@@ -75,9 +76,7 @@ async function main() {
 
         // Cover page
         const coverData = extractCoverData(html);
-        const coverHtml = (coverData.title || coverData.toc.length > 0)
-          ? buildCoverHtml(coverData, themeCss)
-          : undefined;
+        const coverHtml = coverData.title || coverData.toc.length > 0 ? buildCoverHtml(coverData, themeCss) : undefined;
 
         // Render
         const taskWarnings: string[] = [];
@@ -90,13 +89,12 @@ async function main() {
         });
 
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        const coverFile = coverHtml ? files[0] : null;
         const pageCount = coverHtml ? files.length - 1 : files.length;
 
         console.log(
           chalk.green(`  ✔ [${taskLabel}]`) +
-          chalk.gray(` ${pageCount} page(s) · ${duration}s`) +
-          (taskWarnings.length > 0 ? chalk.yellow(` · ${taskWarnings.length} warning(s)`) : "")
+            chalk.gray(` ${pageCount} page(s) · ${duration}s`) +
+            (taskWarnings.length > 0 ? chalk.yellow(` · ${taskWarnings.length} warning(s)`) : ""),
         );
         if (taskWarnings.length > 0) {
           for (const warning of taskWarnings) {

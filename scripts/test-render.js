@@ -10,12 +10,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {
-  extractCoverData,
-  parseMarkdownString,
-  renderToPages,
-  resolveTheme,
-} from "@carddown/core";
+import { extractCoverData, parseMarkdownString, renderToPages, resolveTheme } from "@carddown/core";
 
 const WORK_DIR = path.join(process.cwd(), "output", ".tmp-tests", "render");
 fs.rmSync(WORK_DIR, { recursive: true, force: true });
@@ -54,20 +49,20 @@ async function render(name, markdown, options = {}) {
 
 // ── Fixtures that used to abort the whole run ──────────────
 
-const longList = ["# Long List", ""].concat(
-  Array.from({ length: 150 }, (_, i) => `- item ${i}`)
-).join("\n");
+const longList = ["# Long List", ""].concat(Array.from({ length: 150 }, (_, i) => `- item ${i}`)).join("\n");
 
-const longTable = [
-  "# Long Table",
-  "",
-  "| a | b | c |",
-  "|---|---|---|",
-].concat(Array.from({ length: 120 }, (_, i) => `| ${i} | value ${i} | note ${i} |`)).join("\n");
+const longTable = ["# Long Table", "", "| a | b | c |", "|---|---|---|"]
+  .concat(Array.from({ length: 120 }, (_, i) => `| ${i} | value ${i} | note ${i} |`))
+  .join("\n");
 
-const longQuote = ["# Long Quote", ""].concat(
-  Array.from({ length: 40 }, (_, i) => `> Quoted paragraph number ${i} with enough words to take up real vertical space.`)
-).join("\n>\n");
+const longQuote = ["# Long Quote", ""]
+  .concat(
+    Array.from(
+      { length: 40 },
+      (_, i) => `> Quoted paragraph number ${i} with enough words to take up real vertical space.`,
+    ),
+  )
+  .join("\n>\n");
 
 const bigCode = ["# Big Code", "", "```js"]
   .concat(Array.from({ length: 200 }, (_, i) => `const value${i} = compute(${i});`))
@@ -179,7 +174,9 @@ await check("a wide table is reported instead of silently clipped", async () => 
     "| identifier | digest | owner | status | created | updated | reference |",
     "|---|---|---|---|---|---|---|",
   ]
-    .concat(Array.from({ length: 8 }, () => `| ${token} | ${token} | ${token} | ${token} | ${token} | ${token} | ${token} |`))
+    .concat(
+      Array.from({ length: 8 }, () => `| ${token} | ${token} | ${token} | ${token} | ${token} | ${token} | ${token} |`),
+    )
     .join("\n");
 
   const { warnings } = await render("wide-table", wideTable);
@@ -194,9 +191,7 @@ await check("an image gallery paginates instead of shrinking to slivers", async 
     path.join(WORK_DIR, "tile.svg"),
     '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200"><rect width="600" height="200" fill="#8a7f70"/></svg>',
   );
-  const gallery = ["# Gallery", ""]
-    .concat(Array.from({ length: 20 }, (_, i) => `![tile ${i}](tile.svg)`))
-    .join("\n\n");
+  const gallery = ["# Gallery", ""].concat(Array.from({ length: 20 }, (_, i) => `![tile ${i}](tile.svg)`)).join("\n\n");
 
   const { files } = await render("gallery", gallery);
   assert.ok(
@@ -216,10 +211,7 @@ await check("re-rendering into the same directory keeps the new files", async ()
   const second = await renderToPages(html, outDir, "rerun", { scale: 1, quiet: true });
   assert.ok(second.length > 0, "second render wrote nothing");
   for (const file of second) {
-    assert.ok(
-      fs.existsSync(file),
-      `${path.basename(file)} was deleted by the stale-output cleanup of its own run`,
-    );
+    assert.ok(fs.existsSync(file), `${path.basename(file)} was deleted by the stale-output cleanup of its own run`);
   }
 });
 
@@ -253,10 +245,14 @@ await check("a CLI run leaves no temporary directories behind", async () => {
     process.execPath,
     [
       cliEntry,
-      "-i", fixture,
-      "-o", path.join(WORK_DIR, "temp-check"),
-      "--name", "temp-check",
-      "--scale", "1",
+      "-i",
+      fixture,
+      "-o",
+      path.join(WORK_DIR, "temp-check"),
+      "--name",
+      "temp-check",
+      "--scale",
+      "1",
       "--no-cover",
     ],
     { stdio: "ignore" },

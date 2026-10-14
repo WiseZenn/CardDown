@@ -1,0 +1,26 @@
+# Normalise line endings to LF in the repository and in every checkout.
+#
+# Without this, a Windows clone with core.autocrlf=true writes CRLF into the
+# working tree, which makes `prettier --check` fail on the Windows CI job and
+# produces "LF will be replaced by CRLF" noise on every git command.
+* text=auto eol=lf
+
+# Windows-only sources keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets: never touch line endings, never diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary
+*.ttf binary
+*.ttc binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Generated files: keep them out of diffs and language statistics.
+package-lock.json linguist-generated=true

@@ -7,10 +7,7 @@ import { ensureKatexAssets } from "./parser.js";
 import type { PageDimensions } from "./types.js";
 
 // Pagination algorithm — loaded from file to avoid template-literal escaping issues.
-const PAGINATION_ALGO = fs.readFileSync(
-  path.resolve(import.meta.dirname, "paginator-algo.js"),
-  "utf-8"
-);
+const PAGINATION_ALGO = fs.readFileSync(path.resolve(import.meta.dirname, "paginator-algo.js"), "utf-8");
 
 function findEdgePath(): string | undefined {
   const candidates: string[] = [];
@@ -63,7 +60,7 @@ async function launchBrowser(): Promise<Browser> {
       "Unable to launch a Chromium browser for rendering." +
         fallback +
         " Install the Playwright browser with: npx playwright install chromium." +
-        ` Original error: ${formatBrowserError(err)}`
+        ` Original error: ${formatBrowserError(err)}`,
     );
   }
 }
@@ -125,7 +122,7 @@ export async function renderToPages(
   html: string,
   outputDir: string,
   baseName: string,
-  options: RenderOptions = {}
+  options: RenderOptions = {},
 ): Promise<string[]> {
   const {
     coverHtml,
@@ -180,7 +177,7 @@ export async function renderToPages(
           if (imgs.length === 0) return true;
           return imgs.every((img) => img.naturalWidth > 0);
         },
-        { timeout: 30000 }
+        { timeout: 30000 },
       )
       .catch(async () => {
         await page.evaluate(() => {
@@ -202,8 +199,7 @@ export async function renderToPages(
     // Every replacement uses a function: a plain replacement string would let
     // `$&`, "$'", "$`" and `$$` in the value expand as replace patterns, and
     // the document title comes straight from the input file's H1.
-    const algoCode = PAGINATION_ALGO
-      .replace(/\{\{PW\}\}/g, () => String(dims.width))
+    const algoCode = PAGINATION_ALGO.replace(/\{\{PW\}\}/g, () => String(dims.width))
       .replace(/\{\{PH\}\}/g, () => String(dims.height))
       .replace(/\{\{PD\}\}/g, () => String(dims.padding))
       .replace(/\{\{MAX_CODE\}\}/g, () => String(maxCodeLines))

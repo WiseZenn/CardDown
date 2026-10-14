@@ -54,7 +54,9 @@ export function loadConfig(profilePath: string): Config {
   }
 
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`Config file must contain a YAML/JSON object (mapping), not a ${parsed === null ? "null" : Array.isArray(parsed) ? "list" : typeof parsed}.`);
+    throw new Error(
+      `Config file must contain a YAML/JSON object (mapping), not a ${parsed === null ? "null" : Array.isArray(parsed) ? "list" : typeof parsed}.`,
+    );
   }
 
   return parsed as Config;
@@ -86,13 +88,11 @@ function parseNumberOption(
   key: string,
   flag: string,
   fallback: string,
-  config: { integer?: boolean; min?: number; max?: number } = {}
+  config: { integer?: boolean; min?: number; max?: number } = {},
 ): number {
   const raw = opts[key] ?? fallback;
   const text = String(raw).trim();
-  const numericPattern = config.integer
-    ? /^-?(?:0|[1-9]\d*)$/
-    : /^-?(?:\d+\.?\d*|\.\d+)$/;
+  const numericPattern = config.integer ? /^-?(?:0|[1-9]\d*)$/ : /^-?(?:\d+\.?\d*|\.\d+)$/;
 
   if (!numericPattern.test(text)) {
     const kind = config.integer ? "an integer" : "a number";
@@ -101,7 +101,9 @@ function parseNumberOption(
 
   const value = Number(text);
   if (!Number.isFinite(value) || (config.integer && !Number.isInteger(value))) {
-    throw new Error(`${flag} must be a finite ${config.integer ? "integer" : "number"}; received ${JSON.stringify(raw)}.`);
+    throw new Error(
+      `${flag} must be a finite ${config.integer ? "integer" : "number"}; received ${JSON.stringify(raw)}.`,
+    );
   }
   if (config.min !== undefined && value < config.min) {
     throw new Error(`${flag} must be >= ${config.min}; received ${value}.`);
@@ -135,7 +137,9 @@ export function validateRenderOptions(opts: CliOptions): ValidatedRenderOptions 
     throw new Error("--padding must leave a positive content area inside --width and --height.");
   }
 
-  const formatValue = String(opts.format ?? "png").trim().toLowerCase();
+  const formatValue = String(opts.format ?? "png")
+    .trim()
+    .toLowerCase();
   if (formatValue !== "png" && formatValue !== "pdf") {
     throw new Error(`--format must be "png" or "pdf"; received ${JSON.stringify(opts.format)}.`);
   }
