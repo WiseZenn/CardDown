@@ -239,6 +239,7 @@ tools/                    Repository-only utilities
 ```bash
 npm ci
 npx playwright install chromium
+npm run lint
 npm run typecheck
 npm run build
 npm test

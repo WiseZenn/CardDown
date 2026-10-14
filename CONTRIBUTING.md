@@ -26,6 +26,21 @@ Use `npm run test:render` after changes to parsing, theming, pagination, screens
 - Update `README.md` or `CHANGELOG.md` for user-visible changes.
 - Avoid committing generated `dist/`, `output/`, cache folders, tarballs, or local binaries.
 
+## Code Style
+
+Formatting and linting are enforced in CI, and both are part of `npm test`:
+
+```bash
+npm run format        # apply Prettier
+npm run lint          # ESLint
+npm run format:check  # what CI runs
+```
+
+Configuration lives in `.prettierrc.json`, `.prettierignore` and `eslint.config.js`. Two paths are deliberately excluded from both tools:
+
+- `packages/core/src/paginator-algo.js` is not valid JavaScript on disk. It is a template — `paginator.ts` substitutes `{{PW}}`, `{{FILL}}`, `{{DOC_TITLE}}` and friends before the text is handed to `page.evaluate()` — so Prettier and ESLint both fail to parse it. Do not add it to a linter glob.
+- `docs/assets/` holds brand and design sources rather than code.
+
 ## Code Notes
 
 - Import reusable rendering capabilities from the public `@carddown/core` entry point.
