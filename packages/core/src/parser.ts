@@ -7,9 +7,9 @@ import rehypeKatex from "rehype-katex";
 import rehypeStringify from "rehype-stringify";
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
 import { createRequire } from "module";
 import { resolveTheme, PAGINATION_CSS } from "./themes.js";
+import { createTempDir } from "./temp-assets.js";
 import type { Root, PhrasingContent, Text, Image, Link, Blockquote, Paragraph } from "mdast";
 import type { Plugin } from "unified";
 
@@ -21,7 +21,7 @@ let _katexDir: string | null = null;
 export function ensureKatexAssets(): string {
   if (_katexDir && fs.existsSync(_katexDir)) return _katexDir;
   // Directory was deleted by OS temp cleanup — recreate
-  _katexDir = fs.mkdtempSync(path.join(os.tmpdir(), "carddown-"));
+  _katexDir = createTempDir("carddown-");
   fs.copyFileSync(path.join(KATEX_DIST, "katex.min.css"), path.join(_katexDir, "katex.min.css"));
   const fontsDst = path.join(_katexDir, "fonts");
   fs.mkdirSync(fontsDst, { recursive: true });

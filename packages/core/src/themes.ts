@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
 import JSZip from "jszip";
+import { createTempDir } from "./temp-assets.js";
 
 const GITHUB_CSS = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.8;color:#333;background:#fff;padding:48px 56px;width:1080px}h1{font-size:32px;margin-bottom:24px;color:#111;font-weight:700}h1:after{content:"";display:block;width:48px;height:3px;background:var(--accent);margin-top:12px;border-radius:2px}h2{font-size:24px;margin:32px 0 16px;color:#222;font-weight:700}h3{font-size:20px;margin:24px 0 12px;color:#333;font-weight:700}p{margin-bottom:16px}pre{background:#f6f8fa;border:1px solid #e1e4e8;border-radius:8px;padding:16px;margin-bottom:20px;overflow:hidden;font-family:"JetBrains Mono","Fira Code",monospace;font-size:14px;line-height:1.6}code{font-family:"JetBrains Mono","Fira Code",monospace}p>code{background:#f0f0f0;padding:2px 6px;border-radius:4px;font-size:14px}img{display:block;max-width:100%;max-height:700px;height:auto;object-fit:contain;border-radius:8px;margin:0}p.img-only{line-height:0;margin-bottom:20px}table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:15px}th,td{border:1px solid #ddd;padding:10px 14px;text-align:left}th{background:#f6f8fa;font-weight:700}blockquote{border-left:4px solid #0070f3;background:#f0f7ff;padding:12px 20px;margin-bottom:20px;border-radius:0 8px 8px 0;color:#444}strong{font-weight:700}mark{background:#fff3cd;color:#2b2621;padding:0.08em 0.3em;border-radius:3px}.page-card{box-shadow:inset 0 4px 0 #0070f3}.page-header h1{font-size:32px;margin:0 0 10px;font-weight:700;color:#111}.page-header h1:after{content:"";display:block;width:48px;height:3px;background:var(--accent);margin-top:8px;border-radius:2px}.page-number{position:absolute;bottom:32px;right:56px;background:#0070f3;color:#fff;font-family:-apple-system,sans-serif;font-size:13px;padding:4px 14px;border-radius:999px;font-weight:500;letter-spacing:0.5px;z-index:10}`;
 
@@ -256,7 +256,7 @@ async function loadThemeFile(themePath: string, options: ThemeResolveOptions): P
 async function loadZipTheme(zipPath: string, options: ThemeResolveOptions): Promise<string> {
   const buf = fs.readFileSync(zipPath);
   const zip = await JSZip.loadAsync(buf);
-  const zipResourceDir = fs.mkdtempSync(path.join(os.tmpdir(), "carddown-theme-"));
+  const zipResourceDir = createTempDir("carddown-theme-");
   const extractedResources = new Map<string, string>();
 
   function zipDirname(entryName: string): string {
@@ -405,7 +405,7 @@ async function loadZipTheme(zipPath: string, options: ThemeResolveOptions): Prom
   css = css.replace(/@font-face\s*\{[^}]*\}/g, "");
 
   // Extract font files to temp dir, generate @font-face
-  const fontDir = fs.mkdtempSync(path.join(os.tmpdir(), "carddown-fonts-"));
+  const fontDir = createTempDir("carddown-fonts-");
   const fontExts = [".ttf", ".ttc", ".otf", ".woff", ".woff2"];
   const fontFaces: string[] = [];
 
