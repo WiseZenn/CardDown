@@ -495,6 +495,13 @@
 
   // ── Main pagination loop ────────────────────────────
 
+  // A document with no block content has nothing to paginate. Reporting zero
+  // pages lets the caller fail with a real message instead of handing back one
+  // blank card that looks like a successful render.
+  if (children.length === 0) {
+    return { pages: 0, warnings: warnings };
+  }
+
   newCard();
 
   for (var i = 0; i < children.length; i++) {
