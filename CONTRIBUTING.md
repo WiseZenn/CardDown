@@ -41,6 +41,20 @@ Configuration lives in `.prettierrc.json`, `.prettierignore` and `eslint.config.
 - `packages/core/src/paginator-algo.js` is not valid JavaScript on disk. It is a template — `paginator.ts` substitutes `{{PW}}`, `{{FILL}}`, `{{DOC_TITLE}}` and friends before the text is handed to `page.evaluate()` — so Prettier and ESLint both fail to parse it. Do not add it to a linter glob.
 - `docs/assets/` holds brand and design sources rather than code.
 
+## Visual Checks
+
+`npm test` includes `scripts/test-visual.js`, which renders a fixture and asserts invariants on the resulting pixels: pages are not blank, the page-number badge is not a flat rectangle, and continuation pages carry a running header. Those three hold on any platform and catch content that silently failed to paint.
+
+It deliberately does **not** compare against committed reference images. Rendered pixels depend on installed fonts and the platform's text rasteriser, so a Unix CI runner and a Windows machine produce measurably different PNGs for identical markup — a committed baseline would fail on one of them for reasons unrelated to the change.
+
+For a same-machine comparison, where an exact match *is* meaningful:
+
+```bash
+node scripts/test-visual.js --diff output/render-before output/render-after
+```
+
+It prints the bounding box of each difference, which names the element that broke. On a real regression this reported `bounding box x 973-1009, y 1388-1401` — the page-number badge — rather than leaving a pixel count to interpret.
+
 ## Code Notes
 
 - Import reusable rendering capabilities from the public `@carddown/core` entry point.
