@@ -282,6 +282,180 @@
     return t === "p" || t === "li" || t === "blockquote" || t === "td" || t === "th";
   }
 
+  // ── Oversized-block placement ───────────────────────
+  // A block taller than a whole page has no valid page. Splitting it is always
+  // better than leaving it on a card, because the final overflow verification
+  // turns one bad block into a failed run for the entire document.
+
+  // Repeatable units a block can be broken at, or null when it has none.
+  function blockChildUnits(el) {
+    if (!el || !el.tagName) return null;
+    var tag = el.tagName.toLowerCase();
+    if (tag === "ul" || tag === "ol" || tag === "blockquote") {
+      return Array.from(el.children);
+    }
+    if (tag === "div" && el.classList && el.classList.contains("callout")) {
+      return Array.from(el.children);
+    }
+    if (tag === "table") {
+      // Rows of the last row group, so the header stays on every fragment.
+      var bodies = el.querySelectorAll("tbody");
+      var scope = bodies.length > 0 ? bodies[bodies.length - 1] : el;
+      return Array.from(scope.children).filter(function(child) {
+        return child.tagName && child.tagName.toLowerCase() === "tr";
+      });
+    }
+    return null;
+  }
+
+  // Rebuild the block's shell around a slice of its units.
+  function buildFragment(el, units, start, count) {
+    var frag = el.cloneNode(false);
+    var isTable = el.tagName.toLowerCase() === "table";
+    if (isTable) {
+      var head = el.querySelector("thead");
+      if (head) frag.appendChild(head.cloneNode(true));
+      var body = document.createElement("tbody");
+      for (var b = start; b < start + count; b++) {
+        body.appendChild(units[b].cloneNode(true));
+      }
+      frag.appendChild(body);
+      return frag;
+    }
+    for (var u = start; u < start + count; u++) {
+      frag.appendChild(units[u].cloneNode(true));
+    }
+    return frag;
+  }
+
+  function clipToPage(el, note) {
+    el.style.maxHeight = limitFor() + "px";
+    el.style.overflow = "hidden";
+    if (window.console && console.warn) {
+      console.warn("CardDown: " + note + " — content was clipped to one page.");
+    }
+  }
+
+  // Distribute a block across as many cards as its repeatable units need.
+  function splitBlockAcrossCards(el) {
+    var units = blockChildUnits(el);
+    if (!units || units.length < 2) return false;
+
+    var index = 0;
+    while (index < units.length) {
+      var lo = 1, hi = units.length - index, best = 0;
+      while (lo <= hi) {
+        var mid = Math.floor((lo + hi) / 2);
+        var probe = buildFragment(el, units, index, mid);
+        appendToCard(probe);
+        if (!isOver()) {
+          best = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+        removeFromCard(probe);
+      }
+
+      // Always take at least one unit so the loop terminates.
+      var take = best > 0 ? best : 1;
+      var piece = buildFragment(el, units, index, take);
+      appendToCard(piece);
+      if (best === 0) {
+        clipToPage(piece, "a single item of a " + el.tagName.toLowerCase() + " is taller than one page");
+      }
+      index += take;
+      if (index < units.length) newCard();
+    }
+    return true;
+  }
+
+  // Distribute plain text across cards, breaking at sentence ends first and at
+  // word/character boundaries when the text has no sentence to split on.
+  function splitTextAcrossCards(el, text) {
+    var rest = text;
+    while (rest.length > 0) {
+      // Reuse the current card when it is still empty (callers hand us a fresh
+      // one); otherwise start a new page. Spacers are added after this loop,
+      // so an empty content box is a safe emptiness test here.
+      if (contentOf().children.length > 0) newCard();
+      var whole = el.cloneNode(false);
+      whole.textContent = rest;
+      appendToCard(whole);
+      if (!isOver()) return;
+      // Clear the card again — a leftover overflowing element would make every
+      // probe in the search below report overflow too.
+      removeFromCard(whole);
+
+      var lo = 1, hi = rest.length, best = 0;
+      while (lo <= hi) {
+        var mid = Math.floor((lo + hi) / 2);
+        var probe = el.cloneNode(false);
+        probe.textContent = rest.slice(0, mid);
+        appendToCard(probe);
+        if (!isOver()) {
+          best = mid;
+          lo = mid + 1;
+        } else {
+          hi = mid - 1;
+        }
+        removeFromCard(probe);
+      }
+
+      if (best <= 0) {
+        // Not even one character fits; clip instead of looping forever.
+        var clipped = el.cloneNode(false);
+        clipped.textContent = rest;
+        appendToCard(clipped);
+        clipToPage(clipped, "a text block is taller than one page");
+        return;
+      }
+
+      // Prefer a word boundary for latin text; CJK has no spaces so keep `best`.
+      var keep = best;
+      var space = rest.lastIndexOf(" ", keep);
+      if (space > keep * 0.6) keep = space + 1;
+
+      var piece = el.cloneNode(false);
+      piece.textContent = rest.slice(0, keep);
+      appendToCard(piece);
+      rest = rest.slice(keep);
+    }
+  }
+
+  // Place a block that did not fit anywhere: split it if it has repeatable
+  // units, otherwise lay out its text across pages, otherwise clip it.
+  function placeOnFreshCard(original, clone) {
+    newCard();
+    appendToCard(clone);
+    if (!isOver()) return;
+
+    removeFromCard(clone);
+
+    if (splitBlockAcrossCards(original)) return;
+
+    if (!original.children || original.children.length === 0) {
+      splitTextAcrossCards(original, original.textContent || "");
+      return;
+    }
+
+    var clamped = original.cloneNode(true);
+    appendToCard(clamped);
+    if (!isOver()) return;
+    clipToPage(clamped, "a " + (original.tagName || "block").toLowerCase() + " block is taller than one page");
+  }
+
+  // Images scale down to fit, so a fresh page should always accept one; if it
+  // somehow cannot, keep the image rather than silently dropping the element.
+  function placeImageOnFreshCard(original) {
+    newCard();
+    if (fitImageIntoCurrentPage(original.cloneNode(true), limitFor())) return;
+    var fallback = original.cloneNode(true);
+    setImgMaxH(fallback, limitFor());
+    appendToCard(fallback);
+    clipToPage(fallback, "an image block is taller than one page");
+  }
+
   // ── Main pagination loop ────────────────────────────
 
   newCard();
@@ -292,7 +466,13 @@
     var clone = c.cloneNode(true);
     appendToCard(clone);
 
-    if (!isOver()) continue;
+    // Hide the original before continuing: a visible original keeps a second
+    // copy of the content in the document, which slows every layout pass and
+    // prints duplicated content in PDF mode.
+    if (!isOver()) {
+      c.style.display = "none";
+      continue;
+    }
 
     removeFromCard(clone);
     var tag = c.tagName.toLowerCase();
@@ -306,20 +486,17 @@
         appendToCard(tryClone);
         if (!scaleAllImagesOnPage(card)) {
           removeFromCard(tryClone);
-          newCard();
-          fitImageIntoCurrentPage(c.cloneNode(true), limitFor());
+          placeImageOnFreshCard(c);
         }
       } else {
         var space = avail();
         if (space > MIN_SPACE_FOR_SPLIT) {
           var sClone = c.cloneNode(true);
           if (!fitImageIntoCurrentPage(sClone, space)) {
-            newCard();
-            fitImageIntoCurrentPage(c.cloneNode(true), limitFor());
+            placeImageOnFreshCard(c);
           }
         } else {
-          newCard();
-          fitImageIntoCurrentPage(c.cloneNode(true), limitFor());
+          placeImageOnFreshCard(c);
         }
       }
     } else if (tag === "pre") {
@@ -330,9 +507,12 @@
       }
       var langClass = codeEl ? codeEl.className : "";
 
-      var split = lines.length;
-      var fillTarget = limitFor();
       var maxTry = (MAX_CODE > 0 && MAX_CODE < lines.length) ? MAX_CODE : lines.length;
+      // Default to the probe cap, not to every line: when --max-code-lines
+      // stops the search early, splitting at maxTry is what the user asked for.
+      // Defaulting to lines.length would emit the whole block on one page.
+      var split = maxTry;
+      var fillTarget = limitFor();
       for (var j = 1; j <= maxTry; j++) {
         var tPre = document.createElement("pre");
         tPre.className = c.className;
@@ -409,29 +589,23 @@
     } else if (isTextBlock(tag)) {
       // Try Xiaohongshu-style sentence-boundary splitting
       var sentences = splitIntoSentences(c);
-      if (sentences && sentences.length >= 2) {
-        var fit = tryFitSentencePrefix(c, sentences, card);
-        if (fit > 0 && fit < sentences.length) {
-          var prefixEl = c.cloneNode(false);
-          prefixEl.textContent = sentences.slice(0, fit).join("");
-          appendToCard(prefixEl);
-          newCard();
-          var suffixEl = c.cloneNode(false);
-          suffixEl.textContent = sentences.slice(fit).join("");
-          appendToCard(suffixEl);
-        } else if (fit === 0) {
-          newCard();
-          appendToCard(clone);
-        } else {
-          appendToCard(clone);
-        }
+      var fit = (sentences && sentences.length >= 2) ? tryFitSentencePrefix(c, sentences, card) : 0;
+
+      if (fit > 0) {
+        var prefixEl = c.cloneNode(false);
+        prefixEl.textContent = sentences.slice(0, fit).join("");
+        appendToCard(prefixEl);
+        // The remainder may still be taller than a page on its own.
+        splitTextAcrossCards(c, sentences.slice(fit).join(""));
+      } else if (c.children && c.children.length > 0) {
+        // Inline markup blocks the sentence splitter, so try structural
+        // splitting and clip as a last resort instead of failing the run.
+        placeOnFreshCard(c, clone);
       } else {
-        newCard();
-        appendToCard(clone);
+        splitTextAcrossCards(c, c.textContent || "");
       }
     } else {
-      newCard();
-      appendToCard(clone);
+      placeOnFreshCard(c, clone);
     }
     // Re-hide the original element — it's been cloned into a card.
     // This prevents body content from showing through transparent cards.
