@@ -27,8 +27,24 @@ function findEdgePath(): string | undefined {
   return candidates.find((p) => fs.existsSync(p));
 }
 
+const PAGINATION_OVERFLOW_HINT =
+  "Hint: a single block could not be made to fit one card. Check the card size " +
+  "(--width/--height/--padding) and any very long code line, wide table or " +
+  "deeply nested list in the document.";
+
+// Playwright prefixes evaluate() failures with "page.evaluate: " and appends a
+// JavaScript stack from inside the page. Neither helps the user, so keep the
+// first meaningful line and drop the rest.
 function formatBrowserError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  const raw = err instanceof Error ? err.message : String(err);
+  const line = (
+    raw
+      .replace(/^page\.evaluate:\s*/, "")
+      .split("\n")
+      .map((part) => part.trim())
+      .find((part) => part.length > 0 && !part.startsWith("at ")) ?? raw
+  ).replace(/^Error:\s*/, "");
+  return /Pagination overflow/i.test(line) ? `${line}\n${PAGINATION_OVERFLOW_HINT}` : line;
 }
 
 async function launchBrowser(): Promise<Browser> {
@@ -62,6 +78,13 @@ export interface RenderOptions {
   format?: "png" | "pdf";
   fillThreshold?: number;
   onPageCount?: (pageCount: number) => void;
+  /**
+   * Receives degradations the pagination algorithm had to accept (clipped
+   * blocks, horizontally clipped content). The algorithm runs inside the page,
+   * so a console.warn there never reaches the terminal — these must be
+   * surfaced by the caller.
+   */
+  onWarnings?: (warnings: string[]) => void;
 }
 
 function findPreviousOutputs(outputDir: string, baseName: string): string[] {
@@ -114,6 +137,7 @@ export async function renderToPages(
     format = "png",
     fillThreshold = 0.85,
     onPageCount,
+    onWarnings,
   } = options;
 
   fs.mkdirSync(outputDir, { recursive: true });
@@ -186,8 +210,27 @@ export async function renderToPages(
       .replace(/\{\{FILL\}\}/g, () => String(fillThreshold))
       .replace(/"\{\{DOC_TITLE\}\}"/g, () => (title ? JSON.stringify(title) : "null"));
 
-    const pageCount: number = await page.evaluate(algoCode);
+    let result: { pages: number; warnings?: string[] };
+    try {
+      result = (await page.evaluate(algoCode)) as { pages: number; warnings?: string[] };
+    } catch (err) {
+      // Surface the algorithm's own message, not Playwright's wrapper and the
+      // in-page stack that no caller can act on.
+      throw new Error(formatBrowserError(err));
+    }
+    const pageCount = result.pages;
+    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
     onPageCount?.(pageCount);
+    if (warnings.length > 0) {
+      onWarnings?.(warnings);
+      // Only print when nobody is handling them, so a caller with its own
+      // formatting (the CLI) does not get a duplicate.
+      if (!onWarnings && !quiet) {
+        for (const warning of warnings) {
+          console.warn(`  ⚠ ${warning}`);
+        }
+      }
+    }
 
     if (format === "pdf") {
       // PDF: convert cards to flow layout + page breaks, export as single PDF

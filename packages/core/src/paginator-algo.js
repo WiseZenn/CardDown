@@ -16,6 +16,8 @@
   var FILL_EMPTY_THRESH = Math.max(0, FILL_TARGET - 0.08); // Page "too empty" threshold, triggers pull from next page
   var FILL_PULL_MIN = Math.max(0, Math.min(0.30, FILL_EMPTY_THRESH / 2)); // Minimum page occupancy to allow pulling from
   var SCALE_FACTOR_MAX = 0.98;  // Max image scale-down factor
+  var MIN_IMAGE_SCALE = 0.6;    // Never shrink an image below this share of its laid-out height
+  var MAX_WARNINGS = 20;        // Cap reported warnings so a broken document cannot flood output
   var headerReserve = docTitle ? HEADER_HEIGHT : 0;
   var contentArea = PH - PD * 2;
   var bottomSpacer = BOTTOM_SPACER;
@@ -50,6 +52,18 @@
   var cards = [];
   var pageIdx = 0;
   var card;
+
+  // Degradations the caller must be told about. page.evaluate() returns only
+  // what this function returns, so a console.warn here is invisible to the CLI.
+  var warnings = [];
+  var droppedWarnings = 0;
+  function warn(message) {
+    if (warnings.length < MAX_WARNINGS) {
+      warnings.push(message);
+    } else {
+      droppedWarnings++;
+    }
+  }
 
   function newCard() {
     card = document.createElement("div");
@@ -176,6 +190,18 @@
     return img.naturalHeight || 700;
   }
 
+  // The height an image was laid out at the first time it was considered for
+  // shrinking. Recorded so the floor does not drift downward: each call would
+  // otherwise take the already-shrunk height as its baseline, and a page that
+  // keeps receiving images could shrink them away a step at a time.
+  function imageBaseHeight(img) {
+    var stored = parseFloat(img.getAttribute("data-base-height"));
+    if (stored > 0) return stored;
+    var height = currentImageHeight(img);
+    img.setAttribute("data-base-height", String(height));
+    return height;
+  }
+
   function scaleAllImagesOnPage(crd) {
     var content = contentOf(crd);
     var imgs = Array.from(content.querySelectorAll("img"));
@@ -192,6 +218,19 @@
       if (imageHeight <= 0) break;
 
       var factor = Math.max(0.1, Math.min(SCALE_FACTOR_MAX, (imageHeight - overflow - 2) / imageHeight));
+
+      // Shrinking a gallery until it fits one page is not a fix: it renders
+      // images a few pixels tall. Stop at the floor and let the caller move the
+      // new image to its own page instead.
+      var pastFloor = false;
+      for (var f = 0; f < imgs.length; f++) {
+        if (currentImageHeight(imgs[f]) * factor < imageBaseHeight(imgs[f]) * MIN_IMAGE_SCALE) {
+          pastFloor = true;
+          break;
+        }
+      }
+      if (pastFloor) break;
+
       for (var k = 0; k < imgs.length; k++) {
         var newH = currentImageHeight(imgs[k]) * factor;
         setImgMaxH(imageBox(imgs[k]), Math.max(1, newH));
@@ -331,9 +370,7 @@
   function clipToPage(el, note) {
     el.style.maxHeight = limitFor() + "px";
     el.style.overflow = "hidden";
-    if (window.console && console.warn) {
-      console.warn("CardDown: " + note + " — content was clipped to one page.");
-    }
+    warn(note + " — the content was clipped to one page.");
   }
 
   // Distribute a block across as many cards as its repeatable units need.
@@ -879,6 +916,14 @@
   }
 
   // ── Overflow verification (after headers & page numbers) ──
+  // Height overflow is fatal: a card that does not fit is a broken page.
+  // Width overflow is not — it is clipped by the card's overflow:hidden — but
+  // it must never be silent, because the user cannot tell from the image.
+  function overflowsWidth(crd) {
+    var content = contentOf(crd);
+    return content.scrollWidth > content.clientWidth + 1;
+  }
+
   for (var v = 0; v < cards.length; v++) {
     var finalUsed = used(cards[v]);
     var finalLimit = finalLimitFor();
@@ -887,7 +932,14 @@
         "Pagination overflow on page " + (v + 1) + ": used " + finalUsed + "px of " + finalLimit + "px"
       );
     }
+    if (overflowsWidth(cards[v])) {
+      warn("page " + (v + 1) + ": content is wider than the card and was clipped horizontally");
+    }
   }
 
-  return cards.length;
+  if (droppedWarnings > 0) {
+    warnings.push("...and " + droppedWarnings + " more warning(s)");
+  }
+
+  return { pages: cards.length, warnings: warnings };
 })()
