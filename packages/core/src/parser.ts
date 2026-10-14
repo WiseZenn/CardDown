@@ -169,6 +169,25 @@ function remarkLocalImages(baseDir: string, allowLocalFiles: boolean): Plugin<[]
   };
 }
 
+// Tag paragraphs whose only child node is an image. Themes collapse the line
+// height of such paragraphs, and `:has(> img:only-child)` also matches a
+// paragraph that mixes an image with text — which flattened real text to zero
+// height. A tag the parser controls keeps the rule scoped to the intended case.
+const remarkImageOnlyParagraphs: Plugin<[], Root> = () => {
+  return (tree) => {
+    walk(tree, (node) => {
+      if (node.type !== "paragraph") return;
+      const children = node.children;
+      if (!Array.isArray(children) || children.length !== 1) return;
+      if ((children[0] as { type?: string }).type !== "image") return;
+
+      const data = (node.data || {}) as Record<string, unknown>;
+      const properties = (data.hProperties || {}) as Record<string, unknown>;
+      node.data = { ...data, hProperties: { ...properties, className: ["img-only"] } };
+    });
+  };
+};
+
 const remarkCjkAutolinkTail: Plugin<[], Root> = () => {
   // CJK ranges: \u3000-\u303f (symbols/punctuation), \u3400-\u9fff (unified ideographs + ext-A),
   // \u3040-\u30ff (hiragana+katakana), \uac00-\ud7af (hangul), \uff00-\uffef (halfwidth/fullwidth)
@@ -261,14 +280,43 @@ const rehypeTyporaCodeFenceClass: Plugin<[], any> = () => {
   };
 };
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+};
+
+function codePointToString(code: number, fallback: string): string {
+  if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return fallback;
+  try {
+    return String.fromCodePoint(code);
+  } catch {
+    return fallback;
+  }
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value.replace(/&(?:#x([0-9a-f]+)|#(\d+)|([a-z][a-z0-9]*));/gi, (match, hex, dec, name) => {
+    if (hex !== undefined) return codePointToString(parseInt(hex, 16), match);
+    if (dec !== undefined) return codePointToString(parseInt(dec, 10), match);
+    const named = NAMED_ENTITIES[String(name).toLowerCase()];
+    return named === undefined ? match : named;
+  });
+}
+
+// Headings are scraped back out of serialized HTML, where rehype has already
+// escaped `&`, `<`, `>` and friends. Decode before the text is reused as a page
+// header or a cover title, otherwise headers show `&#x26;` literally.
+function headingText(innerHtml: string): string {
+  return decodeHtmlEntities(innerHtml.replace(/<[^>]+>/g, ""));
+}
+
 export function extractCoverData(html: string): CoverData {
   const h1Match = html.match(/<h1[^>]*>(.*?)<\/h1>/);
-  const title = h1Match ? h1Match[1].replace(/<[^>]+>/g, "") : null;
+  const title = h1Match ? headingText(h1Match[1]) : null;
   const toc: { level: number; text: string }[] = [];
   const headingRe = /<h([23])[^>]*>(.*?)<\/h[23]>/g;
   let m: RegExpExecArray | null;
   while ((m = headingRe.exec(html)) !== null) {
-    toc.push({ level: parseInt(m[1]), text: m[2].replace(/<[^>]+>/g, "") });
+    toc.push({ level: parseInt(m[1]), text: headingText(m[2]) });
   }
   return { title, toc };
 }
@@ -440,6 +488,7 @@ export async function parseMarkdownString(
     .use(remarkGfm)
     .use(remarkMath)
     .use(remarkLocalImages(baseDir, allowLocalFiles))
+    .use(remarkImageOnlyParagraphs)
     .use(remarkCjkAutolinkTail)
     .use(remarkHighlight)
     .use(remarkCallouts)
@@ -466,7 +515,6 @@ export async function parseMarkdownString(
 .callout-tip,.callout-important{border-color:var(--callout-tip-border,#36b37e);background:var(--callout-tip-bg,#e8f5e9);color:var(--callout-tip-fg,var(--callout-fg,inherit))}
 .callout-danger,.callout-caution{border-color:var(--callout-danger-border,#de350b);background:var(--callout-danger-bg,#ffebee);color:var(--callout-danger-fg,var(--callout-fg,inherit))}
 .callout-title{font-weight:700;margin-bottom:8px;color:var(--callout-title-fg,currentColor)}
-mark{background:#fff3cd;color:inherit;padding:0.08em 0.3em;border-radius:3px}
 .katex-display{overflow-x:auto;overflow-y:hidden}
 </style></head>
 <body>
