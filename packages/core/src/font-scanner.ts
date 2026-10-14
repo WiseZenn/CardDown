@@ -5,10 +5,24 @@ import { execSync } from "child_process";
 
 // Generic font names are always valid CSS fallbacks and do not need filesystem detection.
 const GENERIC_FONTS = new Set([
-  "serif", "sans-serif", "monospace", "cursive", "fantasy",
-  "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace",
-  "-apple-system", "blinkmacsystemfont", "segoe ui", "roboto",
-  "helvetica neue", "arial", "inherit", "initial", "unset",
+  "serif",
+  "sans-serif",
+  "monospace",
+  "cursive",
+  "fantasy",
+  "system-ui",
+  "ui-serif",
+  "ui-sans-serif",
+  "ui-monospace",
+  "-apple-system",
+  "blinkmacsystemfont",
+  "segoe ui",
+  "roboto",
+  "helvetica neue",
+  "arial",
+  "inherit",
+  "initial",
+  "unset",
 ]);
 
 function normalizeFontName(name: string): string {
@@ -34,7 +48,9 @@ function getSystemFonts(): Set<string> {
           fonts.add(path.basename(f, ext).toLowerCase());
         }
       }
-    } catch { scanError = true; }
+    } catch {
+      scanError = true;
+    }
 
     const localFontDir = path.join(process.env.LOCALAPPDATA || "", "Microsoft", "Windows", "Fonts");
     try {
@@ -46,13 +62,11 @@ function getSystemFonts(): Set<string> {
           }
         }
       }
-    } catch { scanError = true; }
+    } catch {
+      scanError = true;
+    }
   } else if (platform === "darwin") {
-    const fontDirs = [
-      "/System/Library/Fonts",
-      "/Library/Fonts",
-      path.join(os.homedir(), "Library", "Fonts"),
-    ];
+    const fontDirs = ["/System/Library/Fonts", "/Library/Fonts", path.join(os.homedir(), "Library", "Fonts")];
     for (const dir of fontDirs) {
       try {
         for (const f of fs.readdirSync(dir)) {
@@ -61,7 +75,9 @@ function getSystemFonts(): Set<string> {
             fonts.add(path.basename(f, ext).toLowerCase());
           }
         }
-      } catch { scanError = true; }
+      } catch {
+        scanError = true;
+      }
     }
   } else {
     try {
@@ -74,7 +90,9 @@ function getSystemFonts(): Set<string> {
           if (clean) fonts.add(clean);
         }
       }
-    } catch { scanError = true; }
+    } catch {
+      scanError = true;
+    }
   }
 
   if (scanError && fonts.size === 0) {
@@ -87,7 +105,12 @@ function getSystemFonts(): Set<string> {
 function parseFontFamilyList(values: string): string[] {
   return values
     .split(",")
-    .map((part) => part.trim().replace(/^['"]|['"]$/g, "").toLowerCase())
+    .map((part) =>
+      part
+        .trim()
+        .replace(/^['"]|['"]$/g, "")
+        .toLowerCase(),
+    )
     .filter((name) => name && !name.startsWith("var(") && !name.includes("!important"));
 }
 

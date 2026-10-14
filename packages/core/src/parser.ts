@@ -11,6 +11,7 @@ import { createRequire } from "module";
 import { resolveTheme, PAGINATION_CSS } from "./themes.js";
 import { createTempDir } from "./temp-assets.js";
 import type { Root, PhrasingContent, Text, Image, Link, Blockquote, Paragraph } from "mdast";
+import type { Root as HastRoot } from "hast";
 import type { Plugin } from "unified";
 
 const require = createRequire(import.meta.url);
@@ -57,7 +58,11 @@ export interface ParseMarkdownOptions {
 type NodeWithChildren = { type: string; children?: unknown[]; data?: Record<string, unknown> };
 type ParentWithChildren = { children: unknown[] };
 
-function walk(node: unknown, visitor: (node: NodeWithChildren, parent?: ParentWithChildren) => void, parent?: ParentWithChildren): void {
+function walk(
+  node: unknown,
+  visitor: (node: NodeWithChildren, parent?: ParentWithChildren) => void,
+  parent?: ParentWithChildren,
+): void {
   if (!node || typeof node !== "object") return;
   const current = node as NodeWithChildren;
   visitor(current, parent);
@@ -144,7 +149,9 @@ function embedImage(node: Image, baseDir: string, allowLocalFiles: boolean): voi
 
   const isAbsolute = path.isAbsolute(imgPath) || isWindowsAbsolutePath(imgPath);
   if (isAbsolute && !allowLocalFiles) {
-    throw new Error("Absolute local image paths are disabled by default. Use --allow-local-files only for trusted input.");
+    throw new Error(
+      "Absolute local image paths are disabled by default. Use --allow-local-files only for trusted input.",
+    );
   }
 
   const absoluteImgPath = isAbsolute ? path.resolve(imgPath) : path.resolve(baseDir, imgPath);
@@ -152,7 +159,9 @@ function embedImage(node: Image, baseDir: string, allowLocalFiles: boolean): voi
     const imgData = fs.readFileSync(absoluteImgPath);
     node.url = `data:${mimeFromPath(absoluteImgPath)};base64,${imgData.toString("base64")}`;
   } catch {
-    console.error(`Failed to embed local image: ${absoluteImgPath} — keeping original path (will likely show broken image)`);
+    console.error(
+      `Failed to embed local image: ${absoluteImgPath} — keeping original path (will likely show broken image)`,
+    );
     node.url = imgPath;
   }
 }
@@ -191,7 +200,8 @@ const remarkImageOnlyParagraphs: Plugin<[], Root> = () => {
 const remarkCjkAutolinkTail: Plugin<[], Root> = () => {
   // CJK ranges: \u3000-\u303f (symbols/punctuation), \u3400-\u9fff (unified ideographs + ext-A),
   // \u3040-\u30ff (hiragana+katakana), \uac00-\ud7af (hangul), \uff00-\uffef (halfwidth/fullwidth)
-  const cjkTailPattern = /^(https?:\/\/[^\s\u3000-\u303f\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\uff00-\uffef]+)([\u3000-\u303f\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\uff00-\uffef].*)$/u;
+  const cjkTailPattern =
+    /^(https?:\/\/[^\s\u3000-\u303f\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\uff00-\uffef]+)([\u3000-\u303f\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af\uff00-\uffef].*)$/u;
 
   return (tree) => {
     walk(tree, (_node, parent) => {
@@ -217,8 +227,13 @@ const remarkCjkAutolinkTail: Plugin<[], Root> = () => {
 
 const remarkCallouts: Plugin<[], Root> = () => {
   const calloutTypes: Record<string, string> = {
-    info: "info", warning: "warning", tip: "tip", danger: "danger",
-    note: "note", caution: "caution", important: "important",
+    info: "info",
+    warning: "warning",
+    tip: "tip",
+    danger: "danger",
+    note: "note",
+    caution: "caution",
+    important: "important",
   };
 
   return (tree) => {
@@ -259,19 +274,28 @@ const remarkCallouts: Plugin<[], Root> = () => {
   };
 };
 
-const rehypeTyporaCodeFenceClass: Plugin<[], any> = () => {
+const rehypeTyporaCodeFenceClass: Plugin<[], HastRoot> = () => {
   return (tree) => {
     walk(tree, (node) => {
       if (node.type !== "element" || (node as { tagName?: string }).tagName !== "pre") return;
       const element = node as { properties?: Record<string, unknown>; children?: unknown[] };
       const hasCodeChild = element.children?.some((child) => {
-        return Boolean(child && typeof child === "object" && (child as { type?: string; tagName?: string }).type === "element" && (child as { tagName?: string }).tagName === "code");
+        return Boolean(
+          child &&
+          typeof child === "object" &&
+          (child as { type?: string; tagName?: string }).type === "element" &&
+          (child as { tagName?: string }).tagName === "code",
+        );
       });
       if (!hasCodeChild) return;
 
       const properties = element.properties || {};
       const className = properties.className;
-      const classes = Array.isArray(className) ? className : typeof className === "string" ? className.split(/\s+/) : [];
+      const classes = Array.isArray(className)
+        ? className
+        : typeof className === "string"
+          ? className.split(/\s+/)
+          : [];
       if (!classes.includes("md-fences")) {
         classes.push("md-fences");
       }
@@ -281,7 +305,12 @@ const rehypeTyporaCodeFenceClass: Plugin<[], any> = () => {
 };
 
 const NAMED_ENTITIES: Record<string, string> = {
-  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
 };
 
 function codePointToString(code: number, fallback: string): string {
@@ -358,7 +387,11 @@ ${tocItems ? `<ul class="toc-list">${tocItems}</ul>` : ""}
 </div></body></html>`;
 }
 
-export async function parseMarkdown(inputPath: string, css?: string, options: ParseMarkdownOptions = {}): Promise<string> {
+export async function parseMarkdown(
+  inputPath: string,
+  css?: string,
+  options: ParseMarkdownOptions = {},
+): Promise<string> {
   const absolutePath = path.resolve(inputPath);
   const markdownContent = fs.readFileSync(absolutePath, "utf-8");
   return parseMarkdownString(markdownContent, path.dirname(absolutePath), css, options);
@@ -367,14 +400,16 @@ export async function parseMarkdown(inputPath: string, css?: string, options: Pa
 function assertNoExplicitFileUrls(markdownContent: string): void {
   const patterns = [
     /!\[[^\]]*\]\(\s*<?file:/i,
-    /\[[^\]]*\]\(\s*<?file:/i,  // markdown link syntax [text](file://...)
+    /\[[^\]]*\]\(\s*<?file:/i, // markdown link syntax [text](file://...)
     /<(?:audio|embed|iframe|img|link|object|script|source|video)\b[^>]*(?:href|src)\s*=\s*["']?\s*file:/i,
     /url\(\s*["']?\s*file:/i,
-    /@import\s+(?:url\(\s*)?["']?\s*file:/i,  // CSS @import file: URLs
+    /@import\s+(?:url\(\s*)?["']?\s*file:/i, // CSS @import file: URLs
   ];
 
   if (patterns.some((pattern) => pattern.test(markdownContent))) {
-    throw new Error("Explicit file: URLs in Markdown are disabled by default. Use --allow-local-files only for trusted input.");
+    throw new Error(
+      "Explicit file: URLs in Markdown are disabled by default. Use --allow-local-files only for trusted input.",
+    );
   }
 }
 
@@ -473,7 +508,7 @@ export async function parseMarkdownString(
   markdownContent: string,
   baseDir = process.cwd(),
   css?: string,
-  options: ParseMarkdownOptions = {}
+  options: ParseMarkdownOptions = {},
 ): Promise<string> {
   const allowHtml = options.allowHtml === true;
   const allowLocalFiles = options.allowLocalFiles === true;
@@ -493,13 +528,13 @@ export async function parseMarkdownString(
     .use(remarkHighlight)
     .use(remarkCallouts)
     .use(remarkRehype, { allowDangerousHtml: allowHtml })
-    .use(rehypeKatex as any)
-    .use(rehypeTyporaCodeFenceClass as any)
-    .use(rehypeStringify as any, { allowDangerousHtml: allowHtml })
+    .use(rehypeKatex)
+    .use(rehypeTyporaCodeFenceClass)
+    .use(rehypeStringify, { allowDangerousHtml: allowHtml })
     .process(normalizedContent);
 
   const bodyHtml = String(result);
-  const themeCss = css || await resolveTheme("github");
+  const themeCss = css || (await resolveTheme("github"));
   const katexCss = getKatexCss();
   const fullHtml = `<!DOCTYPE html>
 <html lang="en">

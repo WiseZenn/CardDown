@@ -14,13 +14,16 @@
     "dev:json": "npm start -- --input examples/sample.md --json",
     "typecheck": "tsc --build --pretty false",
     "build": "npm run build --workspace @carddown/core && npm run build --workspace @carddown/cli",
-    "test": "npm run typecheck && npm run build && node scripts/test-config.js && node scripts/test-theme.js && node scripts/test-security.js && node scripts/test-parser.js && node scripts/test-validation.js && node scripts/test-paginator-algo.js && node scripts/test-version.js && node scripts/test-render.js && node packages/cli/dist/index.js --help && node packages/cli/dist/index.js --list-themes --json",
+    "test": "npm run lint && npm run format:check && npm run typecheck && npm run build && node scripts/test-config.js && node scripts/test-theme.js && node scripts/test-security.js && node scripts/test-parser.js && node scripts/test-validation.js && node scripts/test-paginator-algo.js && node scripts/test-version.js && node scripts/test-render.js && node packages/cli/dist/index.js --help && node packages/cli/dist/index.js --list-themes --json",
     "test:render": "npm run build && node packages/cli/dist/index.js -i examples/test-math.md --json --output output/render-test-math --name render-test-math --scale 1 --no-cover && node packages/cli/dist/index.js -i examples/demo-numerical-analysis.md --theme claude-like-dark --output output/render-demo-dark --name render-demo-dark --scale 1",
     "batch-export": "npm run build --workspace @carddown/core && tsx tools/batch-export.ts",
     "pack:check": "npm pack --workspace @carddown/core --dry-run --json --cache .npm-cache && npm pack --workspace @carddown/cli --dry-run --json --cache .npm-cache",
     "publish:dry-run": "npm publish --workspace @carddown/core --dry-run --access public && npm publish --workspace @carddown/cli --dry-run --access public",
     "publish:dry-run:cli": "npm publish --workspace @carddown/cli --dry-run --access public",
-    "publish:cli": "npm publish --workspace @carddown/cli --access public"
+    "publish:cli": "npm publish --workspace @carddown/cli --access public",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "repository": {
     "type": "git",
@@ -31,9 +34,14 @@
     "node": ">=20.11"
   },
   "devDependencies": {
+    "@types/hast": "^3.0.5",
     "@types/mdast": "^4.0.4",
     "@types/node": "^25.6.2",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2"
   }
 }

@@ -155,7 +155,9 @@ export async function resolveTheme(themeArg: string, options: ThemeResolveOption
   const absPath = path.resolve(themeArg);
   if (!fs.existsSync(absPath)) {
     const available = listBuiltinThemes().join(", ");
-    throw new Error(`Theme not found: ${themeArg}. Built-in themes: ${available}. You can also pass a path to an existing .css or .zip file.`);
+    throw new Error(
+      `Theme not found: ${themeArg}. Built-in themes: ${available}. You can also pass a path to an existing .css or .zip file.`,
+    );
   }
 
   if (!fs.statSync(absPath).isFile()) {
@@ -167,7 +169,9 @@ export async function resolveTheme(themeArg: string, options: ThemeResolveOption
 
 function assertNoExplicitFileUrls(css: string, source: string): void {
   if (/url\(\s*["']?\s*file:/i.test(css) || /@import\s+(?:url\(\s*)?["']?\s*file:/i.test(css)) {
-    throw new Error(`Explicit file: URLs in theme CSS are disabled by default (${source}). Use --allow-local-files only for trusted themes.`);
+    throw new Error(
+      `Explicit file: URLs in theme CSS are disabled by default (${source}). Use --allow-local-files only for trusted themes.`,
+    );
   }
 }
 
@@ -175,7 +179,13 @@ function assertNoExplicitFileUrls(css: string, source: string): void {
  * Resolve @import directives in CSS by inlining the imported files.
  * Handles: @import "./other.css";  @import url("./other.css");
  */
-function resolveCssImports(css: string, baseDir: string, options: ThemeResolveOptions, importStack?: Set<string>, depth?: number): string {
+function resolveCssImports(
+  css: string,
+  baseDir: string,
+  options: ThemeResolveOptions,
+  importStack?: Set<string>,
+  depth?: number,
+): string {
   const activeImports = importStack || new Set<string>();
   const currentDepth = depth || 0;
   const MAX_IMPORT_DEPTH = 20;
@@ -188,7 +198,9 @@ function resolveCssImports(css: string, baseDir: string, options: ThemeResolveOp
   const importRe = /@import\s+(?:url\(\s*)?["']?([^"')]+\.css)["']?\s*\)?\s*;/gi;
   return css.replace(importRe, (_match, importPath: string) => {
     if (!options.allowLocalFiles && /^file:/i.test(importPath)) {
-      throw new Error(`Explicit file: @import is disabled by default: ${importPath}. Use --allow-local-files only for trusted themes.`);
+      throw new Error(
+        `Explicit file: @import is disabled by default: ${importPath}. Use --allow-local-files only for trusted themes.`,
+      );
     }
     const resolved = path.resolve(baseDir, importPath);
     if (activeImports.has(resolved)) {
@@ -336,7 +348,7 @@ async function loadZipTheme(zipPath: string, options: ThemeResolveOptions): Prom
     }
 
     activeImports.add(normalized);
-    let cssText = await entry.async("text");
+    const cssText = await entry.async("text");
     if (!options.allowLocalFiles) {
       assertNoExplicitFileUrls(cssText, `${zipPath}:${normalized}`);
     }
@@ -410,9 +422,11 @@ async function loadZipTheme(zipPath: string, options: ThemeResolveOptions): Prom
   const fontFaces: string[] = [];
 
   const formatMap: Record<string, string> = {
-    ".ttf": "truetype", ".ttc": "truetype",
+    ".ttf": "truetype",
+    ".ttc": "truetype",
     ".otf": "opentype",
-    ".woff": "woff", ".woff2": "woff2",
+    ".woff": "woff",
+    ".woff2": "woff2",
   };
 
   for (const [name, entry] of Object.entries(zip.files)) {
@@ -443,11 +457,12 @@ async function loadZipTheme(zipPath: string, options: ThemeResolveOptions): Prom
         fontFaces.push(`@font-face{${parts.join(";")}}`);
       }
     } else {
-      const familyName = path.basename(name, ext)
+      const familyName = path
+        .basename(name, ext)
         .replace(/[-_](regular|bold|italic|light|medium|semibold|thin|heavy|oblique|normal)$/i, "")
         .replace(/[-_]/g, " ");
       fontFaces.push(
-        `@font-face{font-family:"${familyName}";src:url("file:///${absPath}") format("${format}");font-display:swap}`
+        `@font-face{font-family:"${familyName}";src:url("file:///${absPath}") format("${format}");font-display:swap}`,
       );
     }
   }
@@ -474,15 +489,17 @@ function rewriteFontUrls(css: string, cssDir: string): string {
       if (!existingFormat) {
         const ext = path.extname(urlPath).toLowerCase();
         const formatMap: Record<string, string> = {
-          ".ttf": "truetype", ".ttc": "truetype",
+          ".ttf": "truetype",
+          ".ttc": "truetype",
           ".otf": "opentype",
-          ".woff": "woff", ".woff2": "woff2",
+          ".woff": "woff",
+          ".woff2": "woff2",
         };
         const fmt = formatMap[ext];
         if (fmt) formatStr = ` format("${fmt}")`;
       }
       return `url("file:///${resolved}")${formatStr}`;
-    }
+    },
   );
 }
 
@@ -525,18 +542,15 @@ function sanitizeThemeCss(css: string): string {
   css = css.replace(/@include-when-export[^;]*;/g, "");
 
   // #write selector → body, without touching strings/fragments such as content:"#write".
-  css = css.replace(/(^|[\s,{>+~])#write(?=[\s,.\[{:>#*+~])/gm, "$1body");
+  css = css.replace(/(^|[\s,{>+~])#write(?=[\s,.[{:>#*+~])/gm, "$1body");
 
   // Fix overflow issues in Typora themes for static output
   // Replace any overflow value on pre.md-fences with overflow-x:auto to prevent content spill
-  css = css.replace(
-    /pre\.md-fences\s*\{([^}]*)\}/g,
-    (_full: string, body: string) => {
-      // Replace overflow property while preserving others
-      const fixed = body.replace(/overflow\s*:\s*[^;]+/, "overflow-x:auto!important");
-      return `pre.md-fences{${fixed}}`;
-    }
-  );
+  css = css.replace(/pre\.md-fences\s*\{([^}]*)\}/g, (_full: string, body: string) => {
+    // Replace overflow property while preserving others
+    const fixed = body.replace(/overflow\s*:\s*[^;]+/, "overflow-x:auto!important");
+    return `pre.md-fences{${fixed}}`;
+  });
 
   return css;
 }

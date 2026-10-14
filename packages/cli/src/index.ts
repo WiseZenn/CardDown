@@ -57,7 +57,7 @@ ${chalk.bold("Examples:")}
 
 ${chalk.bold("Config file:")}
   $ carddown -i doc.md --profile config.yaml      # Load options from config file
-`
+`,
   );
 
 // ── Main convert command ───────────────────────────────────
@@ -67,7 +67,11 @@ program
   .option("-o, --output <dir>", "Output directory", "./output")
   .option("-n, --name <name>", "Output filename prefix (defaults to input filename)")
   .option("--json", "Output structured JSON (for agents and scripts)")
-  .option("--theme <name|.css>", "Theme: claude-like / github / claude-like-dark / claude-like-grey, or external .css path", DEFAULT_THEME)
+  .option(
+    "--theme <name|.css>",
+    "Theme: claude-like / github / claude-like-dark / claude-like-grey, or external .css path",
+    DEFAULT_THEME,
+  )
   .option("--scale <number>", "Output scale factor", "2")
   .option("--width <px>", "Card width in pixels", "1080")
   .option("--height <px>", "Card height in pixels", "1440")
@@ -283,7 +287,9 @@ program.action(async (opts) => {
       process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     } else {
       console.log("");
-      console.log(chalk.green("✔ Done") + chalk.gray(` — ${duration}s, ${renderedPageCount || contentFiles.length} page(s)`));
+      console.log(
+        chalk.green("✔ Done") + chalk.gray(` — ${duration}s, ${renderedPageCount || contentFiles.length} page(s)`),
+      );
       if (coverFile) {
         console.log(chalk.gray("  Cover: ") + coverFile);
       }

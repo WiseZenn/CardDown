@@ -1,10 +1,4 @@
-export {
-  buildCoverHtml,
-  ensureKatexAssets,
-  extractCoverData,
-  parseMarkdown,
-  parseMarkdownString,
-} from "./parser.js";
+export { buildCoverHtml, ensureKatexAssets, extractCoverData, parseMarkdown, parseMarkdownString } from "./parser.js";
 export type { CoverData, ParseMarkdownOptions } from "./parser.js";
 
 export { renderToPages } from "./paginator.js";

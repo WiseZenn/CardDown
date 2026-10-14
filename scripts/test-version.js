@@ -21,9 +21,7 @@ assert.equal(
 );
 
 // The CLI pins @carddown/core exactly, so a version bump must move both.
-const corePkg = JSON.parse(
-  fs.readFileSync(path.join(process.cwd(), "packages", "core", "package.json"), "utf-8"),
-);
+const corePkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "packages", "core", "package.json"), "utf-8"));
 assert.equal(
   pkg.dependencies["@carddown/core"],
   corePkg.version,

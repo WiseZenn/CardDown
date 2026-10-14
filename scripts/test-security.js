@@ -5,7 +5,7 @@ const css = ":root{--accent:#0070f3}";
 const markdown = [
   "# 安全测试",
   "==高亮==",
-  "<script>alert(\"x\")</script>",
+  '<script>alert("x")</script>',
   "<div onclick=\"alert('x')\">raw html</div>",
   "",
 ].join("\n");
@@ -25,7 +25,9 @@ await assert.rejects(
   /Explicit file: URLs in Markdown are disabled by default/,
 );
 
-const trustedFileImageHtml = await parseMarkdownString(fileImageMarkdown, process.cwd(), css, { allowLocalFiles: true });
+const trustedFileImageHtml = await parseMarkdownString(fileImageMarkdown, process.cwd(), css, {
+  allowLocalFiles: true,
+});
 assert.match(trustedFileImageHtml, /src="file:\/\/\/C:\/secret\.png"/);
 
 const rawHtmlFileImage = '<img src="file:///C:/secret.png" alt="secret">';
