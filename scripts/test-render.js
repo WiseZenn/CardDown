@@ -6,7 +6,9 @@
  * Keep fixtures small and `scale: 1` so the whole file stays CI-friendly.
  */
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import {
   extractCoverData,
@@ -39,13 +41,15 @@ async function render(name, markdown, options = {}) {
   const themeCss = await resolveTheme(options.theme || "github");
   const html = await parseMarkdownString(markdown, WORK_DIR, themeCss);
   const cover = extractCoverData(html);
+  const warnings = [];
   const files = await renderToPages(html, path.join(WORK_DIR, name), name, {
     scale: 1,
     quiet: true,
     title: options.useDocTitle ? cover.title || undefined : options.title,
     maxCodeLines: options.maxCodeLines ?? 0,
+    onWarnings: (list) => warnings.push(...list),
   });
-  return { files, html, title: cover.title };
+  return { files, html, title: cover.title, warnings };
 }
 
 // ── Fixtures that used to abort the whole run ──────────────
@@ -165,6 +169,42 @@ await check("only image-only paragraphs are tagged for collapsed line height", a
   );
 });
 
+await check("a wide table is reported instead of silently clipped", async () => {
+  // Cells hold unbreakable tokens: word-wrapping content simply makes the
+  // table taller, but a long token forces it wider than the card.
+  const token = "sha256:9f2c7ab41de8b3056ca7f1e2d4b8903af6c5e1d7b2a4908c3e6f1a7d5b0c2e84";
+  const wideTable = [
+    "# Wide Table",
+    "",
+    "| identifier | digest | owner | status | created | updated | reference |",
+    "|---|---|---|---|---|---|---|",
+  ]
+    .concat(Array.from({ length: 8 }, () => `| ${token} | ${token} | ${token} | ${token} | ${token} | ${token} | ${token} |`))
+    .join("\n");
+
+  const { warnings } = await render("wide-table", wideTable);
+  assert.ok(
+    warnings.some((w) => /wider than the card/i.test(w)),
+    `expected a horizontal-clip warning, got: ${JSON.stringify(warnings)}`,
+  );
+});
+
+await check("an image gallery paginates instead of shrinking to slivers", async () => {
+  fs.writeFileSync(
+    path.join(WORK_DIR, "tile.svg"),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200"><rect width="600" height="200" fill="#8a7f70"/></svg>',
+  );
+  const gallery = ["# Gallery", ""]
+    .concat(Array.from({ length: 20 }, (_, i) => `![tile ${i}](tile.svg)`))
+    .join("\n\n");
+
+  const { files } = await render("gallery", gallery);
+  assert.ok(
+    files.length >= 2,
+    `20 images 200px tall cannot share one 1440px card, but only ${files.length} page(s) were produced`,
+  );
+});
+
 await check("re-rendering into the same directory keeps the new files", async () => {
   const themeCss = await resolveTheme("github");
   const html = await parseMarkdownString("# Rerun\n\nBody text.\n", WORK_DIR, themeCss);
@@ -181,6 +221,50 @@ await check("re-rendering into the same directory keeps the new files", async ()
       `${path.basename(file)} was deleted by the stale-output cleanup of its own run`,
     );
   }
+});
+
+await check("a pagination failure reports a clean, actionable message", async () => {
+  const themeCss = await resolveTheme("github");
+  const html = await parseMarkdownString("# Heading\n\nBody text.\n", WORK_DIR, themeCss);
+  await assert.rejects(
+    () =>
+      renderToPages(html, path.join(WORK_DIR, "tiny-card"), "tiny-card", {
+        scale: 1,
+        quiet: true,
+        dims: { width: 1080, height: 120, padding: 50 },
+      }),
+    (err) => {
+      assert.doesNotMatch(err.message, /page\.evaluate/, "Playwright's wrapper leaked into the message");
+      assert.doesNotMatch(err.message, /\n\s*at /, "an in-page stack leaked into the message");
+      assert.match(err.message, /Pagination overflow/);
+      assert.match(err.message, /Hint:/, "the message must tell the user what to do");
+      return true;
+    },
+  );
+});
+
+await check("a CLI run leaves no temporary directories behind", async () => {
+  const fixture = path.join(WORK_DIR, "temp-check.md");
+  fs.writeFileSync(fixture, "# Temp Check\n\nBody text.\n");
+  const cliEntry = path.join(process.cwd(), "packages", "cli", "dist", "index.js");
+  const before = fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith("carddown-"));
+
+  execFileSync(
+    process.execPath,
+    [
+      cliEntry,
+      "-i", fixture,
+      "-o", path.join(WORK_DIR, "temp-check"),
+      "--name", "temp-check",
+      "--scale", "1",
+      "--no-cover",
+    ],
+    { stdio: "ignore" },
+  );
+
+  const after = fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith("carddown-"));
+  const added = after.filter((name) => !before.includes(name));
+  assert.deepEqual(added, [], `temp directories leaked: ${added.join(", ")}`);
 });
 
 await check("empty document still renders a single card", async () => {
