@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # No branch filter: `branches` under pull_request matches the *base*, so a
+  # filter of [main] silently skips CI for any pull request stacked on another
+  # branch. Those are exactly the changes that need checking.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
