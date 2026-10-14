@@ -13,7 +13,13 @@ import {
 } from "@carddown/core";
 import { DEFAULT_THEME, loadConfig, mergeConfig, validateRenderOptions } from "./config/config-loader.js";
 import * as path from "path";
+import { createRequire } from "module";
 import type { OutputResult } from "./types.js";
+
+// Read the version from package.json instead of hardcoding it: a hardcoded
+// string silently drifts from what npm publishes (1.2.1 shipped reporting 1.2.0).
+const require = createRequire(import.meta.url);
+const { version: CLI_VERSION } = require("../package.json") as { version: string };
 
 const program = new Command();
 
@@ -35,7 +41,7 @@ program
 program
   .name("carddown")
   .description("Markdown → paginated image cards. Default 1080×1440px, smart pagination, multi-theme.")
-  .version("1.2.0")
+  .version(CLI_VERSION)
   .addHelpText(
     "after",
     `
