@@ -2,7 +2,7 @@ export { buildCoverHtml, ensureKatexAssets, extractCoverData, parseMarkdown, par
 export type { CoverData, ParseMarkdownOptions } from "./parser.js";
 
 export { renderToPages } from "./paginator.js";
-export type { RenderOptions } from "./paginator.js";
+export type { RenderOptions, BrowserInfo } from "./paginator.js";
 
 export { listBuiltinThemes, PAGINATION_CSS, resolveTheme } from "./themes.js";
 export type { ThemeResolveOptions } from "./themes.js";

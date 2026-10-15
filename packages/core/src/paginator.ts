@@ -44,7 +44,16 @@ function formatBrowserError(err: unknown): string {
   return /Pagination overflow/i.test(line) ? `${line}\n${PAGINATION_OVERFLOW_HINT}` : line;
 }
 
-async function launchBrowser(): Promise<Browser> {
+/** Which browser the render actually used — not necessarily the bundled one. */
+export interface BrowserInfo {
+  name: string;
+  version: string;
+  executablePath: string;
+  /** True when a browser installed on the machine was preferred over Playwright's. */
+  isSystemBrowser: boolean;
+}
+
+async function launchBrowser(): Promise<{ browser: Browser; info: BrowserInfo }> {
   const edgePath = findEdgePath();
   const launchOpts: Record<string, unknown> = {
     args: ["--allow-file-access-from-files"],
@@ -53,7 +62,19 @@ async function launchBrowser(): Promise<Browser> {
     launchOpts.executablePath = edgePath;
   }
   try {
-    return await chromium.launch(launchOpts);
+    const browser = await chromium.launch(launchOpts);
+    // Reported because the answer differs by platform: on Windows and macOS an
+    // installed Edge is preferred over the bundled Chromium, so "which browser
+    // rendered this" is not something a caller can assume.
+    return {
+      browser,
+      info: {
+        name: edgePath ? "Microsoft Edge" : "Chromium",
+        version: browser.version(),
+        executablePath: edgePath ?? "",
+        isSystemBrowser: Boolean(edgePath),
+      },
+    };
   } catch (err) {
     const fallback = edgePath ? ` Tried Microsoft Edge at: ${edgePath}.` : "";
     throw new Error(
@@ -82,6 +103,8 @@ export interface RenderOptions {
    * surfaced by the caller.
    */
   onWarnings?: (warnings: string[]) => void;
+  /** Receives which browser was launched, for reporting and support. */
+  onBrowser?: (info: BrowserInfo) => void;
 }
 
 function findPreviousOutputs(outputDir: string, baseName: string): string[] {
@@ -135,12 +158,14 @@ export async function renderToPages(
     fillThreshold = 0.85,
     onPageCount,
     onWarnings,
+    onBrowser,
   } = options;
 
   fs.mkdirSync(outputDir, { recursive: true });
   const staleOutputs = findPreviousOutputs(outputDir, baseName);
 
-  const browser = await launchBrowser();
+  const { browser, info: browserInfo } = await launchBrowser();
+  onBrowser?.(browserInfo);
   let tmpHtmlFile: string | null = null;
   try {
     const context = await browser.newContext({ deviceScaleFactor: scale });

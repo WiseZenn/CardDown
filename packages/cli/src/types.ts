@@ -18,6 +18,8 @@ export interface OutputResult {
      * exported images are complete.
      */
     warnings: string[];
+    /** Which browser actually rendered the cards. */
+    browser: string;
   };
   message?: string;
 }
