@@ -1,10 +1,6 @@
 # Changelog
 
-## Unreleased
-
-### Changed
-
-- An empty or whitespace-only document now fails with `The document produced no content to render` instead of writing one blank 1080x1440 card and reporting success. Scripted callers that previously saw `status: "success"` with `page_count: 1` will now see an error. Existing output files are left untouched when this happens.
+## 1.2.2 - 2026-10-15
 
 ### Added
 
@@ -13,12 +9,14 @@
 - Dependabot configuration and a scheduled `npm audit` workflow. The audit runs weekly rather than per pull request, so a new advisory in a transitive dependency does not block an unrelated change.
 - `CODE_OF_CONDUCT.md` and `.editorconfig`.
 
-### Fixed
+### Changed
 
-- Content wider than a card (a wide table, a long unbroken line) is now reported per page instead of being silently clipped by the card's `overflow: hidden`.
-- Image galleries paginate instead of being squashed to fit one page. Images may shrink to at most 60% of their laid-out height; past that the gallery continues on the next card. Previously 40 images could render on a single card with 35 of them one pixel tall.
-- Failed renders report the algorithm's own message with an actionable hint, instead of Playwright's wrapper and an in-page JavaScript stack.
-- Temporary directories (KaTeX assets, `.zip` theme resources and fonts) are removed when the process exits. A caller running the CLI repeatedly accumulated one per run — roughly 1.5 MB each.
+- An empty or whitespace-only document now fails with `The document produced no content to render` instead of writing one blank 1080x1440 card and reporting success. Scripted callers that previously saw `status: "success"` with `page_count: 1` will now see an error. Existing output files are left untouched when this happens.
+- `npm test` now runs browser-backed render checks, so a broken pagination algorithm fails in CI instead of shipping.
+- CI covers Windows as well as Linux, and Node 20.11 (the declared minimum) as well as 22.
+- The repository is formatted by Prettier and linted by ESLint; both run as part of `npm test`.
+
+### Fixed
 
 - Long lists, tables, blockquotes and oversized paragraphs no longer abort the entire render. Blocks taller than one page are now split across pages, and anything that still cannot fit is clipped with a warning instead of failing the run.
 - `--max-code-lines` now actually limits code lines per page. Previously, a code block longer than the limit was emitted whole onto one page and failed the render.
@@ -27,14 +25,12 @@
 - Page headers and cover titles show real text instead of HTML entities (a title containing `&` used to render as `&#x26;`).
 - Paragraphs that mix an image with text no longer collapse to zero line height, which had made their text unreadable.
 - PDF output no longer prints content twice. Blocks that fit on a page were left visible in the document, so the flow layout used for PDF printed both the original and the paginated card.
+- Content wider than a card (a wide table, a long unbroken line) is now reported per page instead of being silently clipped by the card's `overflow: hidden`.
+- Image galleries paginate instead of being squashed to fit one page. Images may shrink to at most 60% of their laid-out height; past that the gallery continues on the next card. Previously 40 images could render on a single card with 35 of them one pixel tall.
+- Failed renders report the algorithm's own message with an actionable hint, instead of Playwright's wrapper and an in-page JavaScript stack.
 - Previous output files are removed only after a successful render, so a failed run no longer deletes the last good output.
-- Temporary HTML files created during a render are now cleaned up.
+- Temporary directories and files (KaTeX assets, `.zip` theme resources and fonts, per-render HTML) are removed when the process exits. A caller running the CLI repeatedly accumulated roughly 1.5 MB per run.
 - `carddown --version` now reports the actual package version. 1.2.1 shipped reporting `1.2.0`.
-
-### Changed
-
-- `npm test` now runs browser-backed render checks, so a broken pagination algorithm fails in CI instead of shipping.
-- CI covers Windows as well as Linux, and Node 20.11 (the declared minimum) as well as 22.
 
 ## 1.2.1 - 2026-06-30
 
