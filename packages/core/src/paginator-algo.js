@@ -922,13 +922,73 @@
     cards[pn].appendChild(pnEl);
   }
 
-  // ── Overflow verification (after headers & page numbers) ──
+  // ── Width fitting ─────────────────────────────────
   // Height overflow is fatal: a card that does not fit is a broken page.
-  // Width overflow is not — it is clipped by the card's overflow:hidden — but
-  // it must never be silent, because the user cannot tell from the image.
+  // Width overflow is not fatal, but it is lossy — the card's overflow:hidden
+  // cuts off the right-hand side, which for a table means whole columns. The
+  // text of the offending block is reduced until it fits, down to a floor.
+  var WIDTH_SCALE_MIN = 0.6;   // Smallest font size, as a share of the original
+  var WIDTH_SCALE_STEP = 0.92; // Reduction per attempt
+  var MAX_WIDTH_STEPS = 14;    // 0.92^14 is already below the floor
+
   function overflowsWidth(crd) {
     var content = contentOf(crd);
     return content.scrollWidth > content.clientWidth + 1;
+  }
+
+  // Direct children that stick out past the content box, or that scroll
+  // internally (a <pre> whose lines are too long).
+  function overflowingChildren(crd) {
+    var content = contentOf(crd);
+    var limit = content.getBoundingClientRect().right;
+    var found = [];
+    for (var i = 0; i < content.children.length; i++) {
+      var el = content.children[i];
+      if (isSpacer(el)) continue;
+      if (el.getBoundingClientRect().right > limit + 1 || el.scrollWidth > el.clientWidth + 1) {
+        found.push(el);
+      }
+    }
+    return found;
+  }
+
+  // The size the block had before any shrinking, recorded on the element so
+  // repeated attempts over several passes cannot creep downward.
+  function baseFontSize(el) {
+    var stored = parseFloat(el.getAttribute("data-base-font-size"));
+    if (stored > 0) return stored;
+    var computed = parseFloat(window.getComputedStyle(el).fontSize) || 16;
+    el.setAttribute("data-base-font-size", String(computed));
+    return computed;
+  }
+
+  function fitWidthOnPage(crd) {
+    if (!overflowsWidth(crd)) return true;
+
+    for (var step = 0; step < MAX_WIDTH_STEPS; step++) {
+      var offenders = overflowingChildren(crd);
+      if (offenders.length === 0) break;
+
+      var shrunkAny = false;
+      for (var i = 0; i < offenders.length; i++) {
+        var el = offenders[i];
+        var base = baseFontSize(el);
+        var current = parseFloat(el.style.fontSize) || base;
+        var next = current * WIDTH_SCALE_STEP;
+        if (next < base * WIDTH_SCALE_MIN) continue;
+        el.style.fontSize = next + "px";
+        shrunkAny = true;
+      }
+      if (!shrunkAny) break;
+      if (!overflowsWidth(crd)) return true;
+    }
+
+    return !overflowsWidth(crd);
+  }
+
+  // ── Overflow verification (after headers & page numbers) ──
+  for (var fw = 0; fw < cards.length; fw++) {
+    fitWidthOnPage(cards[fw]);
   }
 
   for (var v = 0; v < cards.length; v++) {
@@ -940,7 +1000,9 @@
       );
     }
     if (overflowsWidth(cards[v])) {
-      warn("page " + (v + 1) + ": content is wider than the card and was clipped horizontally");
+      warn(
+      "page " + (v + 1) + ": content is wider than the card even at the smallest size, and was clipped horizontally"
+    );
     }
   }
 
