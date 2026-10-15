@@ -122,6 +122,7 @@ function emitJsonError(opts: Record<string, unknown>, message: string, exitCode 
       duration_seconds: 0,
       fonts_missing: [],
       warnings: [],
+      browser: "",
     },
     message,
   };
@@ -238,6 +239,7 @@ program.action(async (opts) => {
     const docTitle = coverData.title || undefined;
     let renderedPageCount = 0;
     const renderWarnings: string[] = [];
+    let browserUsed = "";
     const files = await renderToPages(html, outputDir, baseName, {
       coverHtml,
       scale: validated.scale,
@@ -252,6 +254,9 @@ program.action(async (opts) => {
       },
       onWarnings: (warnings) => {
         renderWarnings.push(...warnings);
+      },
+      onBrowser: (info) => {
+        browserUsed = `${info.name} ${info.version}`;
       },
     });
 
@@ -282,6 +287,7 @@ program.action(async (opts) => {
           duration_seconds: duration,
           fonts_missing: missingFonts,
           warnings: renderWarnings,
+          browser: browserUsed,
         },
       };
       process.stdout.write(JSON.stringify(result, null, 2) + "\n");
@@ -290,6 +296,11 @@ program.action(async (opts) => {
       console.log(
         chalk.green("✔ Done") + chalk.gray(` — ${duration}s, ${renderedPageCount || contentFiles.length} page(s)`),
       );
+      if (browserUsed) {
+        // Worth one line: on Windows and macOS an installed Edge is preferred
+        // over the bundled Chromium, so this is not the browser people assume.
+        console.log(chalk.gray("  Browser: ") + browserUsed);
+      }
       if (coverFile) {
         console.log(chalk.gray("  Cover: ") + coverFile);
       }
