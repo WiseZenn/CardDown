@@ -30,6 +30,36 @@ CardDown 可以把 Markdown 文档渲染成排版精致、自动分页的图片�
 - 把数学公式、代码块、表格和 callout 保持成清晰排版。
 - 给脚本、Agent 或批量任务返回结构化 JSON。
 
+## 从 Markdown 到卡片
+
+一份 Markdown 文件会成为一组分页卡片。下面是 [`examples/quickstart.md`](./examples/quickstart.md) 的一小段：
+
+```markdown
+# 数值分析速查
+
+## 二分法
+
+在连续函数上反复对半收缩区间，直到区间长度小于容差。
+
+> [!NOTE] 适用条件
+> 函数在区间上连续，且两个端点异号。
+
+==收敛速度是线性的==，每轮迭代误差减半。
+
+| 方法 | 收敛阶 | 每轮误差 |
+|---|---|---|
+| 二分法 | 1 | 减半 |
+| 牛顿法 | 2 | 平方 |
+
+$$x_{k+1} = x_k - \frac{f(x_k)}{f'(x_k)}$$
+```
+
+使用默认主题渲染后：
+
+<p align="center">
+  <img src="./docs/assets/readme/carddown-quickstart-card.png" width="420" alt="渲染出的卡片，包含标题、callout、高亮、表格、KaTeX 公式和代码块">
+</p>
+
 ## 核心能力
 
 - 智能分页：标题、段落、代码块、表格、图片和公式会尽量保持可读。
