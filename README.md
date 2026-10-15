@@ -22,6 +22,36 @@
 
 CardDown turns Markdown into polished, paginated image cards for technical writing, study notes, tutorials, release notes, and social-friendly long-form content. It combines browser-accurate rendering with smart pagination, configurable card dimensions, PNG export, and a theme system that supports built-in styles plus external CSS or Typora `.zip` theme packs. The default output uses the Claude light theme at 1080x1440, but theme, width, height, padding, and scale can be tuned for different platforms and workflows.
 
+## From Markdown to cards
+
+One Markdown file becomes a set of paginated cards. Here is a short excerpt of [`examples/quickstart.md`](./examples/quickstart.md):
+
+```markdown
+# 数值分析速查
+
+## 二分法
+
+在连续函数上反复对半收缩区间，直到区间长度小于容差。
+
+> [!NOTE] 适用条件
+> 函数在区间上连续，且两个端点异号。
+
+==收敛速度是线性的==，每轮迭代误差减半。
+
+| 方法 | 收敛阶 | 每轮误差 |
+|---|---|---|
+| 二分法 | 1 | 减半 |
+| 牛顿法 | 2 | 平方 |
+
+$$x_{k+1} = x_k - \frac{f(x_k)}{f'(x_k)}$$
+```
+
+With the default theme it renders as:
+
+<p align="center">
+  <img src="./docs/assets/readme/carddown-quickstart-card.png" width="420" alt="A rendered card showing a heading, a callout, a highlight, a table, KaTeX math and a code block">
+</p>
+
 ## Why CardDown
 
 - Smart pagination for real documents: headings, paragraphs, code blocks, tables, images, and math are arranged into readable card pages.
