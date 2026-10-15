@@ -164,22 +164,42 @@ await check("only image-only paragraphs are tagged for collapsed line height", a
   );
 });
 
-await check("a wide table is reported instead of silently clipped", async () => {
-  // Cells hold unbreakable tokens: word-wrapping content simply makes the
-  // table taller, but a long token forces it wider than the card.
-  const token = "sha256:9f2c7ab41de8b3056ca7f1e2d4b8903af6c5e1d7b2a4908c3e6f1a7d5b0c2e84";
+await check("a slightly-too-wide table is shrunk to fit rather than clipped", async () => {
+  // Ordinary column values, just more of them than the card has room for.
   const wideTable = [
-    "# Wide Table",
+    "# Deployment Matrix",
     "",
-    "| identifier | digest | owner | status | created | updated | reference |",
+    "| service | state | region | deployed | owner | review | notes |",
     "|---|---|---|---|---|---|---|",
   ]
+    .concat(
+      Array.from(
+        { length: 8 },
+        (_, i) =>
+          `| feature-${i} | enabled | primary-region | 2026-10-${String(i + 1).padStart(2, "0")} | alexandra.developer | pending-review | additional commentary here |`,
+      ),
+    )
+    .join("\n");
+
+  const { warnings } = await render("wide-table", wideTable);
+  assert.deepEqual(
+    warnings.filter((w) => /wider than the card/i.test(w)),
+    [],
+    "a table that can be made to fit by reducing its text should not be reported as clipped",
+  );
+});
+
+await check("content that cannot fit even at the smallest size is still reported", async () => {
+  // Unbreakable 64-character tokens across seven columns stay wider than the
+  // card even at the floor, so this must still warn rather than pretend.
+  const token = "sha256:9f2c7ab41de8b3056ca7f1e2d4b8903af6c5e1d7b2a4908c3e6f1a7d5b0c2e84";
+  const oversized = ["# Oversized Table", "", "| a | b | c | d | e | f | g |", "|---|---|---|---|---|---|---|"]
     .concat(
       Array.from({ length: 8 }, () => `| ${token} | ${token} | ${token} | ${token} | ${token} | ${token} | ${token} |`),
     )
     .join("\n");
 
-  const { warnings } = await render("wide-table", wideTable);
+  const { warnings } = await render("oversized-table", oversized);
   assert.ok(
     warnings.some((w) => /wider than the card/i.test(w)),
     `expected a horizontal-clip warning, got: ${JSON.stringify(warnings)}`,
